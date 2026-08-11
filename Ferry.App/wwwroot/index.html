@@ -2,63 +2,158 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
-  <title>Ferry Photino Spike</title>
+  <title>Ferry</title>
   <style>
     :root {
-      --bg: #1e1e2e; --panel: #262636; --card: #2a2a3c;
-      --accent: #58a6ff; --text: #e0e0e0; --muted: #888;
-      --danger: #f47067; --mono: 'Cascadia Code', Consolas, monospace;
+      --bg: #1e1e2e; --panel: #262636; --card: #2a2a3c; --border: #3a3a4c;
+      --accent: #58a6ff; --text: #e0e0e0; --muted: #888; --danger: #f47067; --ok: #7ee787;
+      --mono: 'Cascadia Code', Consolas, monospace;
     }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-    header { display: flex; align-items: center; gap: 12px; height: 48px;
-      padding: 0 16px; background: var(--panel); border-bottom: 1px solid #333; }
-    header h1 { font-size: 16px; margin: 0; }
-    button { background: var(--card); color: var(--text); border: 1px solid #444;
-      border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13px; }
+    header { display: flex; align-items: center; gap: 10px; height: 48px;
+      padding: 0 14px; background: var(--panel); border-bottom: 1px solid var(--border); }
+    header h1 { font-size: 16px; margin: 0 8px 0 0; }
+    button, select, input, textarea {
+      background: var(--card); color: var(--text); border: 1px solid #444;
+      border-radius: 6px; padding: 4px 8px; font-size: 12px; }
+    button { cursor: pointer; }
     button:hover { border-color: var(--accent); }
-    main { display: flex; height: calc(100vh - 48px); }
-    #form { flex: 1; overflow: auto; padding: 12px; }
-    #preview { width: 420px; min-width: 420px; border-left: 1px solid #333;
-      display: flex; flex-direction: column; }
-    #preview h2 { font-size: 13px; margin: 0; padding: 8px 12px; background: var(--panel); }
+    button.primary { border-color: var(--accent); color: var(--accent); }
+    button.danger:hover { border-color: var(--danger); color: var(--danger); }
+    main { display: flex; height: calc(100vh - 76px); }
+    aside#nav { width: 300px; min-width: 300px; overflow: auto; background: var(--panel);
+      border-right: 1px solid var(--border); padding: 10px; }
+    aside#nav section { margin-bottom: 14px; }
+    aside#nav h3 { font-size: 12px; color: var(--muted); margin: 0 0 6px;
+      text-transform: uppercase; letter-spacing: .5px; }
+    .row { display: flex; gap: 6px; margin: 4px 0; flex-wrap: wrap; align-items: center; }
+    .row > * { flex: 0 0 auto; }
+    .row input[type=text], .row select { flex: 1; min-width: 90px; }
+    .config-item { display: flex; align-items: center; gap: 6px; padding: 5px 8px;
+      border: 1px solid transparent; border-radius: 6px; cursor: pointer; }
+    .config-item:hover { background: var(--card); }
+    .config-item.active { border-color: var(--accent); background: var(--card); }
+    .config-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .config-item .badge { font-size: 11px; color: var(--muted); }
+    .config-item .missing { color: var(--danger); }
+    .version-item { font-size: 12px; padding: 4px 8px; border: 1px solid var(--border);
+      border-radius: 6px; margin: 3px 0; cursor: pointer; }
+    .version-item:hover { border-color: var(--accent); }
+    .version-item .t { color: var(--muted); }
+    #form { flex: 1; overflow: auto; padding: 14px; }
+    #preview { width: 440px; min-width: 440px; display: flex; flex-direction: column;
+      border-left: 1px solid var(--border); }
+    #preview .tabs { display: flex; background: var(--panel); border-bottom: 1px solid var(--border); }
+    #preview .tabs button { border: none; border-radius: 0; background: transparent; padding: 8px 14px; }
+    #preview .tabs button.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
     #preview pre { flex: 1; margin: 0; padding: 12px; overflow: auto; white-space: pre;
       font-family: var(--mono); font-size: 12px; }
-    #status { display: flex; gap: 12px; align-items: center; height: 28px;
-      padding: 0 12px; font-size: 12px; color: var(--muted); }
-    .module { border: 1px solid #3a3a4c; border-radius: 8px; margin-bottom: 8px;
+    #editor { flex: 1; margin: 0; padding: 12px; resize: none; border: none;
+      background: var(--bg); font-family: var(--mono); font-size: 12px; }
+    #preview .tools { display: flex; gap: 6px; padding: 8px; flex-wrap: wrap;
+      border-top: 1px solid var(--border); }
+    footer { display: flex; gap: 18px; align-items: center; height: 28px;
+      padding: 0 14px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); }
+    .ok { color: var(--ok); } .bad { color: var(--danger); }
+    .module { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px;
       background: var(--card); }
-    .module-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+    .module-head { display: flex; align-items: center; gap: 8px; padding: 7px 10px;
       cursor: pointer; user-select: none; }
-    .module-head .count { color: var(--muted); font-size: 12px; }
-    .module-body { padding: 4px 10px 10px 24px; }
+    .module-head .count { color: var(--muted); font-size: 11px; }
+    .module-body { padding: 2px 10px 10px 26px; }
     .field { margin: 6px 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .field label { min-width: 140px; font-size: 13px; }
-    .field input[type=text], .field input[type=number], .field select {
-      background: var(--panel); color: var(--text); border: 1px solid #444;
-      border-radius: 6px; padding: 4px 8px; }
+    .field label { min-width: 130px; font-size: 13px; }
+    .field input[type=text], .field input[type=number], .field select { min-width: 180px; }
     .field .error { color: var(--danger); font-size: 12px; }
     .disabled { opacity: 0.45; }
     .item { border-left: 2px solid var(--accent); padding-left: 10px; margin: 6px 0; }
-    .collapse { transform: rotate(-90deg); display: inline-block; transition: transform 150ms; }
+    .collapse { display: inline-block; transition: transform 150ms; font-size: 10px; }
+    .collapsed .collapse { transform: rotate(-90deg); }
+    .collapsed .module-body { display: none; }
+    .hint { color: var(--muted); font-size: 12px; }
+    .report { color: var(--muted); font-size: 12px; }
+    #statusText { max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   </style>
 </head>
 <body>
   <header>
-    <h1>Ferry · Photino Spike</h1>
+    <h1>Ferry</h1>
+    <select id="workspaceSelect" title="工作空间"></select>
+    <button id="btnNewWs">新建</button>
+    <button id="btnRenameWs">重命名</button>
+    <button id="btnDeleteWs" class="danger">删除</button>
+    <span class="hint">│</span>
+    <select id="presetSelect" title="场景模板"><option value="">模板…</option></select>
+    <button id="btnApplyPreset">应用模板</button>
+    <button id="btnReset" title="清空当前配置并恢复默认值">清空配置</button>
     <button id="btnValidate">校验</button>
-    <button id="btnRender">预览</button>
-    <span id="latency"></span>
+    <button id="btnPreview">预览</button>
+    <button id="btnLogs" title="打开日志">日志</button>
   </header>
   <main>
-    <section id="form"></section>
-    <section id="preview">
-      <h2>预览 / 源码</h2>
+    <aside id="nav">
+      <section>
+        <h3>配置</h3>
+        <div id="configList"><span class="hint">请选择工作空间</span></div>
+        <div class="row" style="margin-top:8px">
+          <select id="newConfigPlugin"></select>
+          <input id="newConfigName" type="text" placeholder="配置名（默认=插件文件名）" />
+          <button id="btnNewConfig" class="primary">新建配置</button>
+        </div>
+      </section>
+      <section>
+        <h3>版本历史</h3>
+        <div class="row">
+          <input id="versionNote" type="text" placeholder="留档备注（可选）" />
+          <button id="btnSnapshot">留档</button>
+        </div>
+        <div id="versionList"><span class="hint">打开配置后可留档</span></div>
+      </section>
+      <section>
+        <h3>存档包</h3>
+        <div class="row">
+          <input id="archivePath" type="text" placeholder="zip 路径（导出/导入）" />
+        </div>
+        <div class="row">
+          <button id="btnExportWs">导出工作空间</button>
+          <button id="btnExportCfg">导出配置</button>
+          <button id="btnImportArchive">导入</button>
+        </div>
+        <div id="archiveResult" class="report"></div>
+      </section>
+      <section>
+        <h3>日志</h3>
+        <div id="logPath" class="report"></div>
+      </section>
+    </aside>
+
+    <section id="form"><span class="hint">从左侧选择配置开始编辑</span></section>
+
+    <aside id="preview">
+      <div class="tabs">
+        <button id="tabPreview" class="active">预览</button>
+        <button id="tabSource">源码编辑</button>
+      </div>
       <pre id="text"></pre>
-    </section>
+      <textarea id="editor" spellcheck="false" hidden></textarea>
+      <div class="tools">
+        <button id="btnApplyEdit">应用修改（回填表单）</button>
+        <input id="exportPath" type="text" placeholder="导出文件路径" style="flex:1;min-width:160px" />
+        <button id="btnExport">导出文件</button>
+        <input id="importFile" type="file" hidden />
+        <button id="btnImportFile">导入文件</button>
+        <span id="unrecognizedReport" class="report"></span>
+      </div>
+    </aside>
   </main>
-  <footer id="status"><span>校验：-</span><span>模块：-</span></footer>
+  <footer>
+    <span id="statusText">就绪</span>
+    <span id="moduleStatus"></span>
+    <span id="latency"></span>
+  </footer>
   <script src="app.js"></script>
 </body>
 </html>

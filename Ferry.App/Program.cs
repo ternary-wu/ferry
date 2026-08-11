@@ -1,18 +1,24 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
+using Ferry.Core.Infrastructure;
+using Ferry.Core.Models;
+using Ferry.Core.Ports;
 using Ferry.Core.Services;
+using Ferry.Core.Services.Archive;
+using Ferry.Core.Services.Parsing;
 using Ferry.Core.Services.Session;
 using Ferry.Core.Services.Session.Protocol;
+using Ferry.Infrastructure;
 using Photino.NET;
 
 namespace Ferry.App;
 
 /// <summary>
-/// Photino spike（M6）：最小宿主 + 原生 HTML/CSS/JS 表单。
-/// JS 通过 WebView2 消息桥调用 FormSession 命令，变更后重新拉快照。
-/// 设置环境变量 FERRY_SPIKE_SELFCHECK=1 时自动执行自检并写结果文件后退出。
+/// Ferry v2 桌面宿主（M7 正式 UI）：Photino + 原生 HTML/CSS/JS。
+/// JS 通过 WebView2 消息桥调用命令协议；Core 不感知传输。
+/// 设置 FERRY_SPIKE_SELFCHECK=1 时自动跑全链路自检并写结果后退出。
 /// </summary>
 public static class Program
 {
@@ -21,26 +27,40 @@ public static class Program
         WriteIndented = true,
         Converters = { new JsonStringEnumConverter() }
     };
+    private static readonly JsonSerializerOptions DtoOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
     private static readonly string LogPath =
         Path.Combine(AppContext.BaseDirectory, "ferry-spike-log.txt");
 
     [STAThread]
     public static void Main()
     {
+        FerryLog.Configure();
         Log("start");
-        var pluginsRoot = Path.Combine(AppContext.BaseDirectory, "Plugins");
-        var manager = new PluginManager(new DirectoryPluginSource(pluginsRoot));
-        var plugins = manager.LoadAllPlugins();
-        var nginx = plugins.FirstOrDefault(p => p.PluginKey == "Nginx")
-            ?? throw new InvalidOperationException("缺少 Nginx 插件，无法运行 spike");
 
-        var session = FormSession.Create(nginx);
+        var pluginsRoot = Path.Combine(AppContext.BaseDirectory, "Plugins");
+        var pluginManager = new PluginManager(new DirectoryPluginSource(pluginsRoot));
         var selfCheck = Environment.GetEnvironmentVariable("FERRY_SPIKE_SELFCHECK") == "1";
+        var workspaceFile = Environment.GetEnvironmentVariable("FERRY_WORKSPACE_FILE")
+            ?? (selfCheck
+                ? Path.Combine(Path.GetTempPath(), $"ferry-selfcheck-{Guid.NewGuid():N}.json")
+                : null);
+        var workspaceStore = workspaceFile is null
+            ? new LocalWorkspaceStore()
+            : new LocalWorkspaceStore(workspaceFile);
+        var workspaceService = new WorkspaceService(workspaceStore);
+        var context = new HostContext(
+            pluginManager,
+            workspaceService,
+            new PortableArchiveService(workspaceService, Array.Empty<PluginDescriptor>()));
+
         var window = new PhotinoWindow()
-            .SetTitle("Ferry Photino Spike")
-            .SetSize(1150, 760)
+            .SetTitle("Ferry")
+            .SetSize(1440, 860)
             .RegisterWebMessageReceivedHandler((sender, message) =>
-                HandleMessage(sender, session, message, selfCheck));
+                HandleMessage(sender, context, message, selfCheck));
         Log("window-created");
 
         var htmlPath = Path.Combine(AppContext.BaseDirectory, "wwwroot", "index.html");
@@ -57,95 +77,548 @@ public static class Program
 
     private static void HandleMessage(
         object? sender,
-        FormSession session,
+        HostContext ctx,
         string message,
         bool selfCheck)
     {
+        if (sender is not PhotinoWindow window)
+        {
+            return;
+        }
+        var sw = Stopwatch.StartNew();
         try
         {
-            Log("message:" + (JsonNode.Parse(message) as JsonObject)?["action"]?.GetValue<string>() ?? "?");
-            if (sender is not PhotinoWindow window)
+            var request = JsonNode.Parse(message) as JsonObject;
+            var action = request?["action"]?.GetValue<string>() ?? string.Empty;
+            var requestId = request?["requestId"]?.GetValue<string>();
+
+            // 自检触发信号：只下发，不回包（避免与 JS 在途请求的响应错配）
+            if (action == "spike:run")
             {
                 return;
             }
-            var request = JsonNode.Parse(message) as JsonObject;
-            var action = request?["action"]?.GetValue<string>() ?? string.Empty;
-            var sw = Stopwatch.StartNew();
 
-            OperationResult? result = null;
-            switch (action)
+            JsonObject? response = action switch
             {
-                case "snapshot":
-                    result = session.Apply(new SnapshotCommand());
-                    break;
-                case "validate":
-                    result = session.Apply(new ValidateCommand());
-                    break;
-                case "render":
-                    result = session.Apply(new RenderCommand());
-                    break;
-                case "setValue":
-                    result = session.Apply(new SetValueCommand(
-                        request!["path"]!.GetValue<string>(),
-                        ConvertValue(request!["value"])));
-                    break;
-                case "toggle":
-                    result = session.Apply(new ToggleEnabledCommand(
-                        request!["path"]!.GetValue<string>(),
-                        request["enabled"] is null ? null : request["enabled"]!.GetValue<bool>()));
-                    break;
-                case "addItem":
-                    result = session.Apply(new AddItemCommand(request!["path"]!.GetValue<string>()));
-                    break;
-                case "removeItem":
-                    result = session.Apply(new RemoveItemCommand(request!["path"]!.GetValue<string>()));
-                    break;
-                case "applyPreset":
-                    result = session.Apply(new ApplyPresetCommand(request!["preset"]!.GetValue<string>()));
-                    break;
-                case "spike:run":
-                    result = new OperationResult { Ok = true };
-                    break;
-                case "spike:result":
-                    OnSpikeResult(window, message);
-                    return;
-                case "log":
-                    Log("JS: " + (request?["text"]?.GetValue<string>() ?? string.Empty));
-                    return;
-                default:
-                    result = new OperationResult
-                    {
-                        Ok = false,
-                        Errors = new List<string> { $"未知操作：{action}" }
-                    };
-                    break;
-            }
-
-            sw.Stop();
-            var response = new JsonObject
-            {
-                ["ok"] = result.Ok,
-                ["latencyMs"] = sw.Elapsed.TotalMilliseconds,
-                ["errors"] = JsonSerializer.SerializeToNode(result.Errors),
-                ["stateVersion"] = session.Version,
-                ["snapshot"] = JsonSerializer.SerializeToNode(result.Snapshot),
-                ["text"] = result.RenderedText,
-                ["newItemPath"] = result.NewItemPath
+                "bootstrap" => Bootstrap(ctx),
+                "plugins:reload" => PluginsReload(ctx),
+                "workspaces:list" => WorkspacesList(ctx),
+                "workspace:create" => WorkspaceCreate(ctx, request!),
+                "workspace:rename" => WorkspaceRename(ctx, request!),
+                "workspace:delete" => WorkspaceDelete(ctx, request!),
+                "configs:list" => ConfigsList(ctx, request!),
+                "config:create" => ConfigCreate(ctx, request!),
+                "config:open" => ConfigOpen(ctx, request!),
+                "config:delete" => ConfigDelete(ctx, request!),
+                "config:reset" => ConfigReset(ctx, request!),
+                "config:saveSource" => ConfigSaveSource(ctx, request!),
+                "config:exportTo" => ConfigExportTo(ctx, request!),
+                "form:snapshot" => FormResult(ctx, new SnapshotCommand()),
+                "form:validate" => FormResult(ctx, new ValidateCommand()),
+                "form:render" => FormResult(ctx, new RenderCommand()),
+                "form:setValue" => FormResult(ctx, new SetValueCommand(
+                    request!["path"]!.GetValue<string>(), ConvertValue(request["value"]))),
+                "form:toggle" => FormResult(ctx, new ToggleEnabledCommand(
+                    request!["path"]!.GetValue<string>(),
+                    request["enabled"] is null ? null : request["enabled"]!.GetValue<bool>())),
+                "form:addItem" => FormResult(ctx, new AddItemCommand(request!["path"]!.GetValue<string>())),
+                "form:removeItem" => FormResult(ctx, new RemoveItemCommand(request!["path"]!.GetValue<string>())),
+                "form:applyPreset" => FormResult(ctx, new ApplyPresetCommand(request!["preset"]!.GetValue<string>())),
+                "form:importText" => FormImportText(ctx, request!),
+                "versions:list" => VersionsList(ctx, request!),
+                "version:snapshot" => VersionSnapshot(ctx, request!),
+                "version:restore" => VersionRestore(ctx, request!),
+                "version:delete" => VersionDelete(ctx, request!),
+                "archive:exportWorkspace" => ArchiveExportWorkspace(ctx, request!),
+                "archive:exportConfig" => ArchiveExportConfig(ctx, request!),
+                "archive:import" => ArchiveImport(ctx, request!),
+                "logs:path" => LogsPath(),
+                "logs:open" => LogsOpen(),
+                "log" => LogJs(request ?? new JsonObject()),
+                "spike:result" => OnSpikeResult(window, message),
+                _ => null
             };
+
+            response ??= new JsonObject
+            {
+                ["ok"] = false,
+                ["errors"] = new JsonArray("未知操作：" + action)
+            };
+            response["action"] = action;
+            if (requestId is not null)
+            {
+                response["requestId"] = requestId;
+            }
+            response["latencyMs"] = sw.Elapsed.TotalMilliseconds;
             window.SendWebMessage(response.ToJsonString(JsonOptions));
         }
         catch (Exception ex)
         {
-            if (sender is PhotinoWindow w)
+            FerryLog.Error("处理命令失败", ex);
+            window.SendWebMessage(JsonSerializer.Serialize(new
             {
-                w.SendWebMessage(JsonSerializer.Serialize(new
-                {
-                    ok = false,
-                    errors = new[] { ex.Message }
-                }));
-            }
+                ok = false,
+                errors = new[] { ex.Message },
+                requestId = TryGetRequestId(message),
+                latencyMs = sw.Elapsed.TotalMilliseconds
+            }, JsonOptions));
         }
     }
+
+    private static string? TryGetRequestId(string message)
+    {
+        try
+        {
+            return (JsonNode.Parse(message) as JsonObject)?["requestId"]?.GetValue<string>();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    // ---------- 命令实现 ----------
+
+    private static JsonObject Bootstrap(HostContext ctx)
+    {
+        var plugins = ctx.PluginManager.LoadAllPlugins();
+        ctx.RefreshArchivePlugins();
+        return new JsonObject
+        {
+            ["ok"] = true,
+            ["plugins"] = Node(plugins.Select(ToPluginDto)),
+            ["workspaces"] = Node(ctx.Workspaces.ListWorkspaces()),
+            ["loadErrors"] = Node(ctx.PluginManager.LoadErrors)
+        };
+    }
+
+    private static JsonObject PluginsReload(HostContext ctx)
+    {
+        var plugins = ctx.PluginManager.LoadAllPlugins();
+        ctx.RefreshArchivePlugins();
+        return new JsonObject
+        {
+            ["ok"] = true,
+            ["plugins"] = Node(plugins.Select(ToPluginDto)),
+            ["loadErrors"] = Node(ctx.PluginManager.LoadErrors)
+        };
+    }
+
+    private static JsonObject WorkspacesList(HostContext ctx)
+        => Ok(new JsonObject
+        {
+            ["workspaces"] = Node(ctx.Workspaces.ListWorkspaces())
+        });
+
+    private static JsonObject WorkspaceCreate(HostContext ctx, JsonObject request)
+    {
+        var name = request["name"]?.GetValue<string>() ?? "未命名工作空间";
+        var workspace = ctx.Workspaces.CreateWorkspace(name);
+        return Ok(new JsonObject { ["workspace"] = Node(workspace) });
+    }
+
+    private static JsonObject WorkspaceRename(HostContext ctx, JsonObject request)
+    {
+        var workspace = ctx.Workspaces.RenameWorkspace(
+            request["id"]!.GetValue<string>(),
+            request["name"]!.GetValue<string>());
+        return Ok(new JsonObject { ["workspace"] = Node(workspace) });
+    }
+
+    private static JsonObject WorkspaceDelete(HostContext ctx, JsonObject request)
+    {
+        ctx.Workspaces.DeleteWorkspace(request["id"]!.GetValue<string>());
+        return Ok();
+    }
+
+    private static JsonObject ConfigsList(HostContext ctx, JsonObject request)
+    {
+        var workspaceId = request["workspaceId"]!.GetValue<string>();
+        var infos = ctx.Workspaces.ListConfigs(workspaceId);
+        var dtos = infos.Select(info =>
+        {
+            var config = ctx.Workspaces.LoadConfig(workspaceId, info.Id);
+            var plugin = WorkspaceService.ResolvePlugin(ctx.Plugins, config ?? new ConfigData());
+            return (JsonNode)new JsonObject
+            {
+                ["id"] = info.Id,
+                ["name"] = info.Name,
+                ["pluginKey"] = info.PluginKey,
+                ["pluginVersion"] = info.PluginVersion,
+                ["pluginName"] = plugin?.Name ?? info.PluginKey,
+                ["pluginMissing"] = plugin is null,
+                ["updatedAt"] = info.UpdatedAt.ToString("yyyy-MM-dd HH:mm"),
+                ["currentVersionId"] = info.CurrentVersionId
+            };
+        }).ToArray();
+        return Ok(new JsonObject { ["configs"] = new JsonArray(dtos) });
+    }
+
+    private static JsonObject ConfigCreate(HostContext ctx, JsonObject request)
+    {
+        var workspaceId = request["workspaceId"]!.GetValue<string>();
+        var pluginKey = request["pluginKey"]!.GetValue<string>();
+        var name = request["name"]?.GetValue<string>();
+        var plugin = ctx.Plugins.FirstOrDefault(p => p.PluginKey == pluginKey)
+            ?? throw new InvalidOperationException($"插件不存在：{pluginKey}");
+
+        var session = FormSession.Create(plugin);
+        var sourceText = string.Empty;
+        try
+        {
+            sourceText = session.Render();
+        }
+        catch
+        {
+            // 插件 schema 缺失时仅建空配置
+        }
+        var config = ctx.Workspaces.CreateConfig(
+            workspaceId,
+            plugin,
+            name: name,
+            sourceText: sourceText,
+            values: session.GetState().Values,
+            enabled: session.GetState().Enabled);
+        return Ok(new JsonObject { ["configId"] = config.Id });
+    }
+
+    private static JsonObject ConfigOpen(HostContext ctx, JsonObject request)
+    {
+        var workspaceId = request["workspaceId"]!.GetValue<string>();
+        var configId = request["configId"]!.GetValue<string>();
+        var config = ctx.Workspaces.LoadConfig(workspaceId, configId)
+            ?? throw new InvalidOperationException("配置不存在");
+        var plugin = WorkspaceService.ResolvePlugin(ctx.Plugins, config);
+        if (plugin is null)
+        {
+            ctx.SetActive(workspaceId, configId, null, null);
+            return Ok(new JsonObject
+            {
+                ["pluginMissing"] = true,
+                ["sourceText"] = config.SourceText,
+                ["snapshot"] = new JsonArray(),
+                ["unrecognized"] = Node(config.Unrecognized)
+            });
+        }
+
+        var session = FormSession.Create(plugin, new ConfigState
+        {
+            PluginKey = plugin.PluginKey,
+            PluginVersion = plugin.Version,
+            Values = config.Values,
+            Enabled = config.Enabled,
+            SourceText = config.SourceText,
+            Unrecognized = config.Unrecognized
+        });
+        // 源码为权威：打开配置 = 源码 → 解析 → 表单（M4 起 layout/ini 亦可）
+        if (!string.IsNullOrWhiteSpace(config.SourceText))
+        {
+            var import = session.Import(config.SourceText);
+            if (!import.Ok)
+            {
+                return Fail(import.Errors);
+            }
+        }
+        ctx.SetActive(workspaceId, configId, plugin, session);
+
+        var snapshot = session.GetSnapshot();
+        var errors = session.Validate();
+        return Ok(new JsonObject
+        {
+            ["config"] = Node(new
+            {
+                id = config.Id,
+                name = config.Name,
+                pluginKey = config.PluginKey,
+                pluginVersion = config.PluginVersion,
+                pluginName = plugin.Name
+            }),
+            ["snapshot"] = Node(snapshot),
+            ["sourceText"] = session.GetState().SourceText,
+            ["errors"] = Node(errors),
+            ["unrecognized"] = Node(session.Unrecognized),
+            ["versionChanged"] = WorkspaceService.IsPluginVersionChanged(plugin, config),
+            ["templates"] = Node(plugin.Templates.Select(t => new
+            {
+                id = t.Id,
+                name = t.Name,
+                description = t.Description
+            }))
+        });
+    }
+
+    private static JsonObject ConfigDelete(HostContext ctx, JsonObject request)
+    {
+        ctx.Workspaces.DeleteConfig(
+            request["workspaceId"]!.GetValue<string>(),
+            request["configId"]!.GetValue<string>());
+        ctx.SetActive(null, null, null, null);
+        return Ok();
+    }
+
+    private static JsonObject ConfigReset(HostContext ctx, JsonObject request)
+    {
+        if (ctx.CurrentSession is null || ctx.CurrentConfig is null || ctx.CurrentPlugin is null)
+        {
+            return Fail(new[] { "当前没有打开的配置" });
+        }
+        var session = FormSession.Create(ctx.CurrentPlugin);
+        ctx.SetActive(ctx.CurrentWorkspaceId!, ctx.CurrentConfig.Id, ctx.CurrentPlugin, session);
+        PersistCurrent(ctx);
+        return Ok(new JsonObject
+        {
+            ["snapshot"] = Node(session.GetSnapshot()),
+            ["sourceText"] = session.GetState().SourceText
+        });
+    }
+
+    private static JsonObject ConfigSaveSource(HostContext ctx, JsonObject request)
+    {
+        if (ctx.CurrentConfig is null)
+        {
+            return Fail(new[] { "当前没有打开的配置" });
+        }
+        ctx.CurrentConfig.SourceText = request["text"]?.GetValue<string>() ?? string.Empty;
+        ctx.Workspaces.SaveConfig(ctx.CurrentConfig);
+        return Ok();
+    }
+
+    private static JsonObject ConfigExportTo(HostContext ctx, JsonObject request)
+    {
+        if (ctx.CurrentSession is null)
+        {
+            return Fail(new[] { "当前没有打开的配置" });
+        }
+        var errors = ctx.CurrentSession.Validate();
+        if (errors.Count > 0)
+        {
+            return Fail(errors);
+        }
+        var path = request["path"]?.GetValue<string>()
+            ?? throw new InvalidOperationException("未指定导出路径");
+        ctx.CurrentSession.Render();
+        var text = ConfigReverseParser.AppendUnrecognized(
+            ctx.CurrentSession.GetState().SourceText,
+            ctx.CurrentSession.Unrecognized);
+        File.WriteAllText(path, text);
+        return Ok(new JsonObject { ["path"] = path });
+    }
+
+    private static JsonObject FormResult(HostContext ctx, FormCommand command)
+    {
+        if (ctx.CurrentSession is null)
+        {
+            return Fail(new[] { "当前没有打开的配置" });
+        }
+        var result = ctx.CurrentSession.Apply(command);
+        if (!result.Ok)
+        {
+            return Fail(result.Errors, result.ErrorCode);
+        }
+        if (command is not ValidateCommand and not RenderCommand and not SnapshotCommand)
+        {
+            PersistCurrent(ctx);
+        }
+        return Ok(new JsonObject
+        {
+            ["snapshot"] = Node(ctx.CurrentSession.GetSnapshot()),
+            ["text"] = command is RenderCommand ? result.RenderedText : null,
+            ["errors"] = Node(ctx.CurrentSession.Validate()),
+            ["newItemPath"] = result.NewItemPath,
+            ["unrecognized"] = Node(ctx.CurrentSession.Unrecognized)
+        });
+    }
+
+    private static JsonObject FormImportText(HostContext ctx, JsonObject request)
+    {
+        if (ctx.CurrentSession is null || ctx.CurrentPlugin is null)
+        {
+            return Fail(new[] { "当前没有打开的配置" });
+        }
+        var text = request["text"]?.GetValue<string>() ?? string.Empty;
+        var result = ctx.CurrentSession.Import(text);
+        if (!result.Ok)
+        {
+            return Fail(result.Errors);
+        }
+        PersistCurrent(ctx, render: false);
+        return Ok(new JsonObject
+        {
+            ["snapshot"] = Node(ctx.CurrentSession.GetSnapshot()),
+            ["errors"] = Node(ctx.CurrentSession.Validate()),
+            ["unrecognized"] = Node(ctx.CurrentSession.Unrecognized),
+            ["report"] = Node(new
+            {
+                unrecognizedLines = ctx.CurrentSession.Unrecognized.Count,
+                canImport = ctx.CurrentPlugin.CanImport
+            })
+        });
+    }
+
+    private static JsonObject VersionsList(HostContext ctx, JsonObject request)
+    {
+        var versions = ctx.Workspaces.ListVersions(
+            request["workspaceId"]!.GetValue<string>(),
+            request["configId"]!.GetValue<string>());
+        return Ok(new JsonObject
+        {
+            ["versions"] = Node(versions.Select(v => new
+            {
+                id = v.Id,
+                note = v.Note,
+                timestamp = v.Timestamp.ToString("yyyy-MM-dd HH:mm"),
+                length = v.SourceText.Length,
+                preview = v.SourceText.Split('\n').FirstOrDefault() ?? string.Empty
+            }))
+        });
+    }
+
+    private static JsonObject VersionSnapshot(HostContext ctx, JsonObject request)
+    {
+        if (ctx.CurrentConfig is null)
+        {
+            return Fail(new[] { "当前没有打开的配置" });
+        }
+        PersistCurrent(ctx);
+        var version = ctx.Workspaces.SnapshotVersion(
+            ctx.CurrentConfig,
+            request["note"]?.GetValue<string>());
+        return Ok(new JsonObject { ["versionId"] = version.Id });
+    }
+
+    private static JsonObject VersionRestore(HostContext ctx, JsonObject request)
+    {
+        if (ctx.CurrentWorkspaceId is null || ctx.CurrentConfig is null)
+        {
+            return Fail(new[] { "当前没有打开的配置" });
+        }
+        var config = ctx.Workspaces.RestoreVersion(
+            ctx.CurrentWorkspaceId,
+            ctx.CurrentConfig.Id,
+            request["versionId"]!.GetValue<string>());
+        ctx.CurrentConfig = config;
+        return ConfigOpen(ctx, new JsonObject
+        {
+            ["workspaceId"] = ctx.CurrentWorkspaceId,
+            ["configId"] = config.Id
+        });
+    }
+
+    private static JsonObject VersionDelete(HostContext ctx, JsonObject request)
+    {
+        ctx.Workspaces.DeleteVersion(
+            request["workspaceId"]!.GetValue<string>(),
+            request["configId"]!.GetValue<string>(),
+            request["versionId"]!.GetValue<string>());
+        return Ok();
+    }
+
+    private static JsonObject ArchiveExportWorkspace(HostContext ctx, JsonObject request)
+    {
+        var path = ResolveExportPath(request);
+        ctx.Archive.ExportWorkspace(request["workspaceId"]!.GetValue<string>(), path);
+        return Ok(new JsonObject { ["path"] = path });
+    }
+
+    private static JsonObject ArchiveExportConfig(HostContext ctx, JsonObject request)
+    {
+        var path = ResolveExportPath(request);
+        ctx.Archive.ExportConfig(
+            request["workspaceId"]!.GetValue<string>(),
+            request["configId"]!.GetValue<string>(),
+            path);
+        return Ok(new JsonObject { ["path"] = path });
+    }
+
+    private static JsonObject ArchiveImport(HostContext ctx, JsonObject request)
+    {
+        var path = request["path"]?.GetValue<string>()
+            ?? throw new InvalidOperationException("未指定存档包路径");
+        if (path == "SELFCHECK")
+        {
+            path = Path.Combine(Path.GetTempPath(), "ferry-m7-selfcheck.zip");
+        }
+        var result = ctx.Archive.Import(path);
+        return Ok(new JsonObject
+        {
+            ["imported"] = result.ImportedConfigs,
+            ["skipped"] = result.SkippedConfigs,
+            ["packagedPlugins"] = Node(result.PackagedPlugins),
+            ["localPlugins"] = Node(result.LocalPlugins),
+            ["missingPlugins"] = Node(result.MissingPlugins),
+            ["workspaceId"] = result.WorkspaceId
+        });
+    }
+
+    private static JsonObject LogsPath()
+        => Ok(new JsonObject { ["path"] = Path.Combine(AppContext.BaseDirectory, "ferry.log") });
+
+    private static JsonObject LogsOpen()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "ferry.log");
+        Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"")
+        {
+            UseShellExecute = true
+        });
+        return Ok();
+    }
+
+    private static JsonObject LogJs(JsonObject request)
+    {
+        Log("JS: " + (request["text"]?.GetValue<string>() ?? string.Empty));
+        return Ok();
+    }
+
+    // ---------- 工具 ----------
+
+    private static string ResolveExportPath(JsonObject request)
+    {
+        var path = request["path"]?.GetValue<string>();
+        if (path == "SELFCHECK")
+        {
+            return Path.Combine(Path.GetTempPath(), "ferry-m7-selfcheck.zip");
+        }
+        return path ?? throw new InvalidOperationException("未指定导出路径");
+    }
+
+    private static void PersistCurrent(HostContext ctx, bool render = true)
+    {
+        if (ctx.CurrentSession is null || ctx.CurrentConfig is null)
+        {
+            return;
+        }
+        if (render)
+        {
+            try
+            {
+                ctx.CurrentSession.Render();
+            }
+            catch
+            {
+                // schema 缺失时保留现有文本
+            }
+        }
+        var state = ctx.CurrentSession.GetState();
+        ctx.CurrentConfig.SourceText = state.SourceText;
+        ctx.CurrentConfig.Values = state.Values;
+        ctx.CurrentConfig.Enabled = state.Enabled;
+        ctx.CurrentConfig.Unrecognized = state.Unrecognized.ToList();
+        ctx.Workspaces.SaveConfig(ctx.CurrentConfig);
+    }
+
+    private static object ToPluginDto(PluginDescriptor plugin) => new
+    {
+        key = plugin.PluginKey,
+        name = plugin.Name,
+        version = plugin.Version,
+        description = plugin.Description,
+        rendererType = plugin.RendererType,
+        defaultFileName = plugin.DefaultFileName,
+        canImport = plugin.CanImport,
+        targetName = plugin.TargetName,
+        targetVersion = plugin.TargetVersion,
+        loadErrors = plugin.LoadErrors
+    };
 
     private static object? ConvertValue(JsonNode? node) => node switch
     {
@@ -160,10 +633,27 @@ public static class Program
         _ => null
     };
 
-    /// <summary>
-    /// 自检模式：等页面加载后触发 JS 跑一轮命令序列，
-    /// JS 上报每步端到端延迟（含 IPC 往返），写结果文件后关闭窗口。
-    /// </summary>
+    /// <summary>以 camelCase 序列化 DTO（与 JS 侧字段名一致）。</summary>
+    private static JsonNode? Node(object? value) => JsonSerializer.SerializeToNode(value, DtoOptions);
+
+    private static JsonObject Ok(JsonObject? data = null)
+    {
+        var result = data ?? new JsonObject();
+        result["ok"] = true;
+        return result;
+    }
+
+    private static JsonObject Fail(IReadOnlyList<string> errors, string? errorCode = null)
+    {
+        var result = new JsonObject { ["ok"] = false };
+        if (errorCode is not null)
+        {
+            result["errorCode"] = errorCode;
+        }
+        result["errors"] = Node(errors);
+        return result;
+    }
+
     private static async Task RunSelfCheckAsync(PhotinoWindow window)
     {
         try
@@ -174,19 +664,15 @@ public static class Program
         }
         catch (Exception ex)
         {
-            WriteSpikeResult(new
-            {
-                ok = false,
-                error = ex.Message
-            });
+            WriteSpikeResult(new { ok = false, error = ex.Message });
         }
     }
 
-    internal static void OnSpikeResult(PhotinoWindow window, string message)
+    private static JsonObject OnSpikeResult(PhotinoWindow window, string message)
     {
+        Log("spike-result");
         try
         {
-            Log("spike-result");
             File.WriteAllText(
                 Path.Combine(AppContext.BaseDirectory, "ferry-spike-result.json"),
                 message);
@@ -195,6 +681,7 @@ public static class Program
         {
             window.Close();
         }
+        return Ok();
     }
 
     private static void WriteSpikeResult(object data)
@@ -222,6 +709,54 @@ public static class Program
         catch
         {
             // 日志失败不阻塞
+        }
+    }
+
+    /// <summary>会话状态：当前打开的工作空间/配置/插件/会话。</summary>
+    private sealed class HostContext
+    {
+        public HostContext(
+            PluginManager pluginManager,
+            WorkspaceService workspaces,
+            PortableArchiveService archive)
+        {
+            PluginManager = pluginManager;
+            Workspaces = workspaces;
+            Archive = archive;
+        }
+
+        public PluginManager PluginManager { get; }
+        public WorkspaceService Workspaces { get; }
+        public PortableArchiveService Archive { get; private set; }
+        public IReadOnlyList<PluginDescriptor> Plugins { get; private set; } = Array.Empty<PluginDescriptor>();
+        public FormSession? CurrentSession { get; private set; }
+        public ConfigData? CurrentConfig { get; set; }
+        public PluginDescriptor? CurrentPlugin { get; private set; }
+        public string? CurrentWorkspaceId { get; private set; }
+
+        public void RefreshArchivePlugins()
+        {
+            Plugins = PluginManager.LoadAllPlugins();
+            Archive = new PortableArchiveService(Workspaces, Plugins);
+        }
+
+        public void SetActive(
+            string? workspaceId,
+            string? configId,
+            PluginDescriptor? plugin,
+            FormSession? session)
+        {
+            CurrentWorkspaceId = workspaceId;
+            CurrentPlugin = plugin;
+            CurrentSession = session;
+            if (configId is null)
+            {
+                CurrentConfig = null;
+            }
+            else if (workspaceId is not null)
+            {
+                CurrentConfig = Workspaces.LoadConfig(workspaceId, configId);
+            }
         }
     }
 }
