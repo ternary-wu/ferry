@@ -11,6 +11,8 @@ public sealed class ConfigState
     public Dictionary<string, object?> Values { get; set; } = new();
     public Dictionary<string, bool> Enabled { get; set; } = new();
     public string SourceText { get; set; } = string.Empty;
+    /// <summary>导入时未能识别的原始内容（随配置存档，导出可选追加，不主动丢弃）。</summary>
+    public List<string> Unrecognized { get; set; } = new();
     public long Version { get; set; }
     public string? WorkspaceId { get; set; }
     public string? ConfigId { get; set; }

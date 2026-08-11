@@ -232,15 +232,28 @@ public class FormSessionTests
     }
 
     [Fact]
-    public void Import_LayoutPlugin_IsRejected()
+    public void Import_LayoutPlugin_ParsesValues_And_PreservesUnknown()
     {
         var plugin = CreateTestPlugin();
         var session = FormSession.Create(plugin);
 
-        var result = session.Import("worker_processes auto;");
+        var result = session.Import("""
+            app_name demo;
+            http {
+                sendfile on;
+            }
+            upstream backend {
+                address 127.0.0.1:8080;
+            }
+            totally_unknown foo bar;
+            """);
 
-        Assert.False(result.Ok);
-        Assert.Equal("unsupported", result.ErrorCode);
+        Assert.True(result.Ok, string.Join("; ", result.Errors));
+        var state = session.GetState();
+        Assert.Equal("demo", state.Values["app_name"]);
+        var http = Assert.IsType<Dictionary<string, object?>>(state.Values["http"]);
+        Assert.Equal("on", http["sendfile"]);
+        Assert.Contains("totally_unknown foo bar;", session.Unrecognized);
     }
 
     [Fact]

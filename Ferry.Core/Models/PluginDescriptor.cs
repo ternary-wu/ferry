@@ -53,8 +53,8 @@ public sealed class PluginDescriptor
     public string TargetVersion => TargetInfo?.Version ?? string.Empty;
     public string RendererType => RendererConfig.Type.ToLowerInvariant();
 
-    /// <summary>该插件输出是否支持导入回表单（v2 v1 仍仅 json/yaml）。</summary>
-    public bool CanImport => RendererType is "json" or "yaml";
+    /// <summary>该插件输出是否支持导入回表单（M4 起四种渲染器均支持：json/yaml 精确导入，layout/ini 宽松解析）。</summary>
+    public bool CanImport => true;
 
     /// <summary>默认导出文件名（补全扩展名）。</summary>
     public string DefaultFileName

@@ -1,4 +1,5 @@
 using Ferry.Core.Models;
+using Ferry.Core.Services.Parsing;
 using Ferry.Core.Services.Form;
 using Ferry.Core.Services.Rendering;
 using Ferry.Core.Services.Session.Protocol;
@@ -17,13 +18,20 @@ public sealed class FormSession
     private List<FormNode> _roots;
     private long _version;
     private string _sourceText = string.Empty;
+    private List<string> _unrecognized = new();
 
-    private FormSession(PluginDescriptor plugin, List<FormNode> roots, long version, string sourceText)
+    private FormSession(
+        PluginDescriptor plugin,
+        List<FormNode> roots,
+        long version,
+        string sourceText,
+        List<string>? unrecognized = null)
     {
         _plugin = plugin;
         _roots = roots;
         _version = version;
         _sourceText = sourceText;
+        _unrecognized = unrecognized ?? new List<string>();
     }
 
     public PluginDescriptor Plugin => _plugin;
@@ -35,11 +43,19 @@ public sealed class FormSession
         var values = state?.Values ?? new Dictionary<string, object?>();
         var enabled = state?.Enabled ?? new Dictionary<string, bool>();
         var roots = FormBuilder.Build(plugin.Schema ?? new ConfigSchema(), values, enabled);
-        return new FormSession(plugin, roots, state?.Version ?? 0, state?.SourceText ?? string.Empty);
+        return new FormSession(
+            plugin,
+            roots,
+            state?.Version ?? 0,
+            state?.SourceText ?? string.Empty,
+            state?.Unrecognized);
     }
 
     /// <summary>当前表单快照树（渲染所需全部状态）。</summary>
     public List<FormFieldSnapshot> GetSnapshot() => SnapshotBuilder.BuildAll(_roots);
+
+    /// <summary>导入时未能识别的原始内容（layout/ini 宽松解析产生）。</summary>
+    public IReadOnlyList<string> Unrecognized => _unrecognized;
 
     /// <summary>校验整棵树并返回错误列表（同时写回各节点 ValidationError）。</summary>
     public List<string> Validate() => ConfigValidator.Validate(_roots);
@@ -65,6 +81,7 @@ public sealed class FormSession
         Values = ConfigValueCollector.Collect(_roots, includeDisabled: true),
         Enabled = CollectEnabledStates(),
         SourceText = _sourceText,
+        Unrecognized = _unrecognized.ToList(),
         Version = _version
     };
 
@@ -185,15 +202,21 @@ public sealed class FormSession
 
     public OperationResult Import(string text)
     {
-        if (!_plugin.CanImport)
+        try
         {
-            return Fail("unsupported", "该插件格式暂不支持导入");
+            var parsed = _plugin.RendererType is "json" or "yaml"
+                ? new ParseResult { Values = ConfigImporter.Parse(_plugin, text) }
+                : ConfigReverseParser.Parse(_plugin, text);
+            _roots = FormBuilder.Build(_plugin.Schema ?? new ConfigSchema(), parsed.Values);
+            _sourceText = text;
+            _unrecognized = parsed.Unrecognized;
+            _version++;
+            return Ok();
         }
-        var data = ConfigImporter.Parse(_plugin, text);
-        _roots = FormBuilder.Build(_plugin.Schema ?? new ConfigSchema(), data);
-        _sourceText = text;
-        _version++;
-        return Ok();
+        catch (Exception ex)
+        {
+            return Fail("validation", $"导入失败：{ex.Message}");
+        }
     }
 
     private OperationResult ValidateResult()

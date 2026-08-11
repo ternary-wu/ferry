@@ -30,7 +30,7 @@ public class PluginLoadingTests
         var nginx = manager.LoadAllPlugins().Single(p => p.PluginKey == "Nginx");
 
         Assert.Equal("layout", nginx.RendererType);
-        Assert.False(nginx.CanImport);
+        Assert.True(nginx.CanImport);
         Assert.Equal("nginx.conf", nginx.DefaultFileName);
         Assert.NotEmpty(nginx.Templates);
         Assert.Equal(3, nginx.Templates.Count);
