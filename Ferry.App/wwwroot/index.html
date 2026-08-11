@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>Ferry Photino Spike</title>
+  <style>
+    :root {
+      --bg: #1e1e2e; --panel: #262636; --card: #2a2a3c;
+      --accent: #58a6ff; --text: #e0e0e0; --muted: #888;
+      --danger: #f47067; --mono: 'Cascadia Code', Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    header { display: flex; align-items: center; gap: 12px; height: 48px;
+      padding: 0 16px; background: var(--panel); border-bottom: 1px solid #333; }
+    header h1 { font-size: 16px; margin: 0; }
+    button { background: var(--card); color: var(--text); border: 1px solid #444;
+      border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+    button:hover { border-color: var(--accent); }
+    main { display: flex; height: calc(100vh - 48px); }
+    #form { flex: 1; overflow: auto; padding: 12px; }
+    #preview { width: 420px; min-width: 420px; border-left: 1px solid #333;
+      display: flex; flex-direction: column; }
+    #preview h2 { font-size: 13px; margin: 0; padding: 8px 12px; background: var(--panel); }
+    #preview pre { flex: 1; margin: 0; padding: 12px; overflow: auto; white-space: pre;
+      font-family: var(--mono); font-size: 12px; }
+    #status { display: flex; gap: 12px; align-items: center; height: 28px;
+      padding: 0 12px; font-size: 12px; color: var(--muted); }
+    .module { border: 1px solid #3a3a4c; border-radius: 8px; margin-bottom: 8px;
+      background: var(--card); }
+    .module-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+      cursor: pointer; user-select: none; }
+    .module-head .count { color: var(--muted); font-size: 12px; }
+    .module-body { padding: 4px 10px 10px 24px; }
+    .field { margin: 6px 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .field label { min-width: 140px; font-size: 13px; }
+    .field input[type=text], .field input[type=number], .field select {
+      background: var(--panel); color: var(--text); border: 1px solid #444;
+      border-radius: 6px; padding: 4px 8px; }
+    .field .error { color: var(--danger); font-size: 12px; }
+    .disabled { opacity: 0.45; }
+    .item { border-left: 2px solid var(--accent); padding-left: 10px; margin: 6px 0; }
+    .collapse { transform: rotate(-90deg); display: inline-block; transition: transform 150ms; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Ferry · Photino Spike</h1>
+    <button id="btnValidate">校验</button>
+    <button id="btnRender">预览</button>
+    <span id="latency"></span>
+  </header>
+  <main>
+    <section id="form"></section>
+    <section id="preview">
+      <h2>预览 / 源码</h2>
+      <pre id="text"></pre>
+    </section>
+  </main>
+  <footer id="status"><span>校验：-</span><span>模块：-</span></footer>
+  <script src="app.js"></script>
+</body>
+</html>

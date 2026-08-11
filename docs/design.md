@@ -263,3 +263,42 @@ Plugins/<name>/
 - 用"Object 包 Array"解决"services: 头 + 动态服务项"结构：`services` Object（`open: "services:"`、`close: ""`），其子字段 `items` Array（`itemOpen: "{{ .name }}:"`、`itemClose: ""`），服务项子字段（image/ports/environment…）缩进两级。
 - ports/environment/volumes 用行形数组输出 `- "80:80"` / `- KEY=VALUE`。
 - 备选：给 layout 引擎的块形数组增加字段级 `open`/`close` 包装（正式开发再评估）。
+
+## 8. v2 开发记录（绿地重构，2026-08-11）
+
+v2 从零重构（新仓库，MVP 仅作参考）已完成的里程碑：
+
+### M0 仓库与基线
+- 当前仓库改名 `ferry-mvp`（历史与 tag `mvp-1.0` 完整保留）；新建 `ferry` 仓库。
+- 迁移 5 个插件资产与设计文档；Nginx 插件目录统一为 `Nginx`（PluginKey 同步）。
+- 许可确认为 Apache 2.0。
+
+### M1 Core 基座
+- 领域模型、`IPluginSource`（`DirectoryPluginSource`）、`PluginManager`。
+- 四种渲染器（json/yaml/ini/layout，layout 语义沿用 MVP 已验证设计）。
+- `FormNode` 表单树（勾选语义 v3、依赖显隐、required 锁定、数组稳定路径）。
+- 校验（min/max/integerOnly/枚举/validations pattern）、值收集、类型强转、导入。
+- 端口契约：`IWorkspaceStore`（v2）、`IPushService`。
+
+### M2 FormSession 命令引擎
+- 命令协议 DTO：SetValue / ToggleEnabled / AddItem / RemoveItem / ApplyPreset / Import / Validate / Render / Snapshot。
+- `ConfigState`（含乐观锁 Version）+ `OperationResult`（含 ErrorCode：conflict/not_found/validation）。
+- `FormFieldSnapshot` 只读快照树 + `PathResolver`（静态路径 + 数组序号 `http.servers[0]`）。
+- 实例式会话与静态 `Execute(plugin, state, command, expectedVersion?)` 共享同一内核。
+
+### M3 工作空间与版本管理
+- 三层模型：工作空间 → 配置 → 版本快照；`LocalWorkspaceStore`（JSON，接口可换）。
+- 留档/查看/回滚；插件缺失与版本变化健壮性；MVP workspace.json 一次性迁移。
+
+### M4 自定义格式反向解析
+- layout/ini 宽松解析：按 schema 字段 id 与 render 前缀生成扫描规则，块形按缩进/括号识别。
+- 未识别内容原样保留（随配置存档、导出可选追加、计入解析报告），不主动丢弃。
+
+### M5 可移植存档包
+- zip 容器：配置数据（源码为权威 + 缓存 + 版本历史）+ 插件定义。
+- 导入时本机同 key 插件优先；无插件可从包内只读加载或仅保留源码查看/导出；显式安装才写入插件目录。
+
+### M6 Photino spike（已通过）
+- 最小 Photino.NET 宿主 + 原生 HTML/CSS/JS 表单，经 WebView2 消息桥调用 FormSession。
+- 自检结果（8 步命令，JS→C#→JS 端到端）：**最差单步延迟 3.3ms，全部 <50ms 目标**。
+- 结论：WebView2 可用、IPC 双向正确、FormSession API 覆盖 spike 全部需求（无缺口），进入 M7 正式 UI 迁移。

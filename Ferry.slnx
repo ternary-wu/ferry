@@ -4,4 +4,5 @@
   </Folder>
   <Project Path="Ferry.Core/Ferry.Core.csproj" />
   <Project Path="Ferry.Infrastructure/Ferry.Infrastructure.csproj" />
+  <Project Path="Ferry.App/Ferry.App.csproj" />
 </Solution>
