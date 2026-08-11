@@ -1,8 +1,16 @@
 namespace Ferry.Core.Ports;
 
+/// <summary>项目（最高级容器）：项目 → 工作空间 → 配置。</summary>
+public sealed record ProjectInfo(
+    string Id,
+    string Name,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt);
+
 /// <summary>工作空间（项目级顶层容器）。</summary>
 public sealed record WorkspaceInfo(
     string Id,
+    string ProjectId,
     string Name,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);
@@ -21,6 +29,7 @@ public sealed record ConfigInfo(
 public sealed class ConfigData
 {
     public string Id { get; set; } = string.Empty;
+    public string ProjectId { get; set; } = string.Empty;
     public string WorkspaceId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string PluginKey { get; set; } = string.Empty;
@@ -47,6 +56,11 @@ public sealed record VersionSnapshot(
 /// </summary>
 public interface IWorkspaceStore
 {
+    IReadOnlyList<ProjectInfo> ListProjects();
+    ProjectInfo? GetProject(string projectId);
+    void SaveProject(ProjectInfo project);
+    void DeleteProject(string projectId);
+
     IReadOnlyList<WorkspaceInfo> ListWorkspaces();
     WorkspaceInfo? GetWorkspace(string workspaceId);
     void SaveWorkspace(WorkspaceInfo workspace);
@@ -55,6 +69,8 @@ public interface IWorkspaceStore
     IReadOnlyList<ConfigInfo> ListConfigs(string workspaceId);
     ConfigData? LoadConfig(string workspaceId, string configId);
     void SaveConfig(ConfigData config);
+    /// <summary>仅从指定工作空间桶移除配置节点（不删除版本历史；用于移动配置）。</summary>
+    void RemoveConfig(string workspaceId, string configId);
     void DeleteConfig(string workspaceId, string configId);
 
     IReadOnlyList<VersionSnapshot> ListVersions(string workspaceId, string configId);

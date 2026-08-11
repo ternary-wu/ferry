@@ -34,8 +34,10 @@ public class PortableArchiveTests : IDisposable
         PluginDescriptor nginx)
     {
         var service = new WorkspaceService(new LocalWorkspaceStore(Path.Combine(_dir, "source.json")));
-        var workspace = service.CreateWorkspace("项目A");
+        var project = service.CreateProject("项目A");
+        var workspace = service.CreateWorkspace(project.Id, "生产环境");
         var config = service.CreateConfig(
+            project.Id,
             workspace.Id,
             nginx,
             sourceText: "worker_processes auto;\nhttp {\n    sendfile on;\n}\n",
@@ -64,8 +66,10 @@ public class PortableArchiveTests : IDisposable
         Assert.Empty(result.LocalPlugins);
         Assert.Empty(result.MissingPlugins);
 
+        var project = Assert.Single(targetService.ListProjects());
+        Assert.Equal("项目A", project.Name);
         var workspace = Assert.Single(targetService.ListWorkspaces());
-        Assert.Equal("项目A", workspace.Name);
+        Assert.Equal("生产环境", workspace.Name);
         var info = Assert.Single(targetService.ListConfigs(workspace.Id));
         var config = targetService.LoadConfig(workspace.Id, info.Id);
         Assert.NotNull(config);
@@ -97,7 +101,8 @@ public class PortableArchiveTests : IDisposable
     public void Import_WithoutPackagedPlugin_KeepsSourceViewable()
     {
         var service = new WorkspaceService(new LocalWorkspaceStore(Path.Combine(_dir, "source.json")));
-        var workspace = service.CreateWorkspace("项目A");
+        var project = service.CreateProject("项目A");
+        var workspace = service.CreateWorkspace(project.Id, "生产环境");
         var stub = new PluginDescriptor
         {
             Name = "Unknown",
@@ -106,6 +111,7 @@ public class PortableArchiveTests : IDisposable
             RendererConfig = new PluginRendererConfig { Type = "layout" }
         };
         var config = service.CreateConfig(
+            project.Id,
             workspace.Id,
             stub,
             sourceText: "some raw config text",
@@ -145,9 +151,10 @@ public class PortableArchiveTests : IDisposable
     {
         var nginx = LoadNginx();
         var service = new WorkspaceService(new LocalWorkspaceStore(Path.Combine(_dir, "source.json")));
-        var workspace = service.CreateWorkspace("项目A");
-        service.CreateConfig(workspace.Id, nginx, name: "a.conf", sourceText: "A");
-        service.CreateConfig(workspace.Id, nginx, name: "b.conf", sourceText: "B");
+        var project = service.CreateProject("项目A");
+        var workspace = service.CreateWorkspace(project.Id, "生产环境");
+        service.CreateConfig(project.Id, workspace.Id, nginx, name: "a.conf", sourceText: "A");
+        service.CreateConfig(project.Id, workspace.Id, nginx, name: "b.conf", sourceText: "B");
         var zipPath = Path.Combine(_dir, "package.zip");
         new PortableArchiveService(service, new List<PluginDescriptor> { nginx })
             .ExportWorkspace(workspace.Id, zipPath);

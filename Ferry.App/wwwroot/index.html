@@ -15,77 +15,98 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 
 .app{display:flex;height:100vh}
 
-/* ===== 左侧导航 ===== */
-.sidebar{width:310px;min-width:310px;background:#171717;border-right:1px solid #333;padding:14px;display:flex;flex-direction:column;overflow-y:auto}
-.logo{font-size:20px;font-weight:600;margin-bottom:18px;letter-spacing:.3px}
-.project{
-  width:100%;background:#303030;padding:13px 14px;border-radius:12px;cursor:pointer;
-  border:1px solid transparent;color:#eee;font-size:14px;outline:none;appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23999' d='M5 6L0 0h10z'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 14px center;
-}
-.project:hover{border-color:#555}
+/* ===== Sidebar ===== */
+.sidebar{width:300px;min-width:300px;background:#171717;border-right:1px solid #333;padding:16px;display:flex;flex-direction:column;overflow-y:auto}
+.logo{font-size:20px;font-weight:600;margin-bottom:16px;letter-spacing:.3px}
+.project-selector{position:relative}
+.project-btn{width:100%;display:flex;align-items:center;gap:8px;background:#303030;padding:12px 14px;border-radius:12px;cursor:pointer;border:1px solid transparent;font-size:14px}
+.project-btn:hover{border-color:#555}
+.project-btn .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.project-btn .caret{color:#999;font-size:11px}
+.project-menu{position:absolute;top:calc(100% + 6px);left:0;right:0;background:#252525;border:1px solid #444;border-radius:12px;padding:6px;z-index:50;display:none;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.project-menu.open{display:block}
+.menu-item{padding:9px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px}
+.menu-item:hover{background:#303030}
+.menu-item.active{color:#fff}
+.menu-item .check{margin-left:auto;color:#2f6feb}
+.menu-sep{height:1px;background:#3a3a3a;margin:6px 4px}
 .btn{background:#303030;padding:12px;border-radius:10px;text-align:center;margin-top:14px;cursor:pointer;transition:background .12s}
 .btn:hover{background:#3a3a3a}
 .btn.primary{background:#2f6feb;color:#fff}
 .btn.primary:hover{background:#3a7bf0}
 .btn.small{padding:6px 10px;border-radius:8px;margin:0;font-size:12px}
+.btn.big{padding:14px 28px;border-radius:14px;font-size:15px}
 .section{font-size:12px;color:#999;margin:22px 0 8px}
 .tree{display:flex;justify-content:space-between;align-items:center;padding:8px 6px;color:#ddd;cursor:pointer;border-radius:8px;user-select:none}
 .tree:hover{background:#222}
 .tree .plus{opacity:0;color:#999;cursor:pointer;padding:0 6px}
 .tree:hover .plus{opacity:1}
 .tree .plus:hover{color:#fff}
-.item{padding:8px 12px;border-radius:8px;margin:3px 0;cursor:pointer;color:#ddd;display:flex;align-items:center;gap:8px}
+.tree-group{display:none}
+.tree-group.open{display:block}
+.item{padding:8px 10px;border-radius:8px;margin:3px 0;cursor:pointer;color:#ddd;display:flex;align-items:center;gap:8px;position:relative}
 .item:hover{background:#303030}
 .item.active{background:#303030;color:#fff}
 .item .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .item .badge{font-size:11px;color:#888}
 .item .badge.missing{color:#f85149}
-.item .del{opacity:0;color:#888}
-.item:hover .del{opacity:1}
-.item .del:hover{color:#f85149}
-.child{padding-left:30px}
+.item .menu-btn{opacity:0;color:#888;padding:0 4px}
+.item:hover .menu-btn{opacity:1}
+.item .menu-btn:hover{color:#fff}
+.child{padding-left:28px}
 .spacer{flex:1}
 .setting{padding:10px 6px;color:#aaa;cursor:pointer;border-radius:8px;font-size:13px}
 .setting:hover{background:#222;color:#fff}
 
-/* ===== 右侧工作区 ===== */
+/* 配置右键菜单 */
+.ctx-menu{position:fixed;background:#252525;border:1px solid #444;border-radius:10px;padding:6px;z-index:100;min-width:170px;display:none;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.ctx-menu.open{display:block}
+
+/* ===== Main ===== */
 .main{flex:1;display:flex;flex-direction:column;min-width:0}
-.top{height:58px;border-bottom:1px solid #333;display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:0 20px;flex-shrink:0}
-.top .title{margin-right:auto;font-size:14px;font-weight:600;color:#eee;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.top{height:56px;border-bottom:1px solid #333;display:flex;align-items:center;gap:10px;padding:0 20px;flex-shrink:0}
+.crumb{font-size:13px;color:#bbb;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crumb b{color:#eee;font-weight:600}
+.top .spacer{flex:1}
 .topBtn{background:#303030;padding:8px 14px;border-radius:10px;cursor:pointer;color:#ddd;transition:background .12s;white-space:nowrap}
 .topBtn:hover{background:#3a3a3a;color:#fff}
-.topBtn.primary{background:#2f6feb;color:#fff}
-.topBtn.primary:hover{background:#3a7bf0}
-.topBtn.danger:hover{background:#3a1f1f;color:#f85149}
 .topBtn.active{background:#2f6feb;color:#fff}
 .content{flex:1;display:flex;min-height:0}
 
-.editor{flex:1;padding:30px;overflow-y:auto}
-.editor-head{max-width:720px;margin:0 auto}
-.editor-head h2{font-size:22px;margin:0 0 4px}
-.editor-head p{color:#999;margin:0 0 18px;font-size:13px}
-.editor-tools{display:flex;gap:8px;margin-bottom:6px}
+/* ===== 欢迎页（一级界面） ===== */
+.welcome{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:40px}
+.welcome .icon{width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#2f6feb,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:700;color:#fff}
+.welcome h1{font-size:26px;margin:0}
+.welcome p{color:#999;margin:0 0 8px}
+.welcome .recent{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:18px;max-width:520px}
+.chip{background:#2b2b2b;border:1px solid #444;border-radius:20px;padding:7px 14px;font-size:12px;color:#ccc;cursor:pointer}
+.chip:hover{border-color:#2f6feb;color:#fff}
+.recent-label{color:#888;font-size:12px}
 
-.card{background:#2b2b2b;border:1px solid #444;border-radius:14px;margin-top:16px;width:100%;overflow:hidden}
-.card-head{display:flex;align-items:center;gap:10px;padding:14px 18px;cursor:pointer;user-select:none;transition:background .12s}
+/* ===== 编辑器 ===== */
+.editor{flex:1;padding:28px;overflow-y:auto;display:none}
+.editor.show{display:block}
+.editor-head{max-width:760px;margin:0 auto}
+.editor-head h2{font-size:21px;margin:0 0 4px}
+.editor-head p{color:#999;margin:0 0 14px;font-size:13px}
+.editor-tools{display:flex;gap:8px;margin-bottom:4px}
+.card{background:#2b2b2b;border:1px solid #444;border-radius:14px;margin-top:14px;width:100%;overflow:hidden}
+.card-head{display:flex;align-items:center;gap:10px;padding:13px 16px;cursor:pointer;user-select:none;transition:background .12s}
 .card-head:hover{background:#2f2f2f}
-.card-head .title{flex:1;font-size:15px;font-weight:600}
-.card-head .count{font-size:12px;color:#999;background:#3a3a3a;padding:1px 8px;border-radius:10px}
+.card-head .title{flex:1;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-head .count{font-size:11px;color:#999;background:#3a3a3a;padding:1px 8px;border-radius:10px}
 .card-head .chev{color:#888;font-size:11px;transition:transform .2s}
 .card.collapsed .card-head .chev{transform:rotate(-90deg)}
 .card.collapsed .card-body{display:none}
 .card.disabled .card-body{opacity:.5}
-.card-body{padding:2px 18px 12px}
-.row{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:11px 0;border-bottom:1px solid #444}
+.card-body{padding:2px 16px 10px}
+.row{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:10px 0;border-bottom:1px solid #444}
 .row:last-child{border-bottom:none}
 .row-label{flex:0 0 150px;padding-top:5px}
 .row-label .n{font-size:13px;font-weight:500}
 .row-label .d{font-size:11px;color:#999;line-height:1.4;margin-top:1px}
 .row-control{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
-.row-control input[type=text],.row-control input[type=number],.row-control select{
-  width:100%;background:#171717;color:#eee;border:1px solid #555;padding:8px 10px;border-radius:10px;outline:none;font-size:13px;transition:border .12s}
+.row-control input[type=text],.row-control input[type=number],.row-control select{width:100%;background:#171717;color:#eee;border:1px solid #555;padding:7px 10px;border-radius:10px;outline:none;font-size:13px;transition:border .12s}
 .row-control input:focus,.row-control select:focus{border-color:#2f6feb}
 .row-error{color:#f85149;font-size:12px}
 .check{width:16px;height:16px;border:1.5px solid #666;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .12s;background:transparent;color:transparent;font-size:11px;margin-top:4px}
@@ -106,18 +127,16 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 .array-item-body{padding:2px 12px 10px;border-top:1px solid #444}
 .array-add{display:inline-flex;align-items:center;gap:6px;color:#999;border:1px dashed #555;padding:8px 12px;border-radius:10px;margin-top:8px;cursor:pointer;transition:all .12s}
 .array-add:hover{color:#2f6feb;border-color:#2f6feb}
-
-/* 快速操作卡 */
-.quick-row{padding:13px 18px;border-bottom:1px solid #444;display:flex;align-items:center;gap:10px;cursor:pointer;transition:background .12s}
+.quick-row{padding:12px 16px;border-bottom:1px solid #444;display:flex;align-items:center;gap:10px;cursor:pointer;transition:background .12s}
 .quick-row:last-child{border-bottom:none}
 .quick-row:hover{background:#2f2f2f}
 .quick-row .arrow{margin-left:auto;color:#888}
 
-/* ===== 源码面板（滑入） ===== */
+/* ===== 源码面板 ===== */
 .source{width:0;overflow:hidden;background:#181818;border-left:1px solid #444;transition:width .2s;display:flex;flex-direction:column;flex-shrink:0}
-.source.open{width:430px}
-.source.full{position:absolute;right:0;top:58px;bottom:0;width:100%;z-index:5;border-left:none}
-.source-head{height:50px;border-bottom:1px solid #333;display:flex;justify-content:space-between;align-items:center;padding:0 15px;flex-shrink:0}
+.source.open{width:420px}
+.source.full{position:absolute;right:0;top:56px;bottom:0;width:100%;z-index:5;border-left:none}
+.source-head{height:48px;border-bottom:1px solid #333;display:flex;justify-content:space-between;align-items:center;padding:0 14px;flex-shrink:0}
 .source-head .name{font-size:13px;color:#ccc}
 .source-head .acts{display:flex;gap:10px;color:#888;font-size:14px}
 .source-head .acts span{cursor:pointer}
@@ -125,14 +144,11 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 .source-tabs{display:flex;border-bottom:1px solid #333;flex-shrink:0}
 .source-tab{padding:8px 14px;font-size:12px;color:#999;cursor:pointer;border-bottom:2px solid transparent}
 .source-tab.active{color:#fff;border-bottom-color:#2f6feb}
-.code{padding:18px;font-family:Consolas,monospace;font-size:12px;white-space:pre;overflow:auto;flex:1}
-.editor-ta{flex:1;resize:none;border:none;outline:none;background:#181818;color:#eee;padding:18px;font-family:Consolas,monospace;font-size:12px;line-height:1.5;white-space:pre}
+.code{padding:16px;font-family:Consolas,monospace;font-size:12px;white-space:pre;overflow:auto;flex:1}
+.editor-ta{flex:1;resize:none;border:none;outline:none;background:#181818;color:#eee;padding:16px;font-family:Consolas,monospace;font-size:12px;line-height:1.5;white-space:pre}
 .source-tools{display:flex;gap:8px;padding:10px;border-top:1px solid #333;flex-wrap:wrap;align-items:center;flex-shrink:0}
 .source-tools input[type=text]{flex:1;min-width:140px;background:#171717;border:1px solid #555;padding:7px 10px;border-radius:8px;color:#eee;outline:none}
 .source-tools .report{width:100%;font-size:11px;color:#999}
-.kw-comment{color:#8b949e;font-style:italic}
-.kw-block{color:#ff7b72}
-.kw-number{color:#d2a8ff}
 
 /* ===== 弹窗 ===== */
 .modal{display:none;position:absolute;inset:0;background:#0008;z-index:10}
@@ -144,11 +160,12 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 .step.active{display:block}
 .search,input[type=text]{width:100%;background:#171717;color:#fff;border:1px solid #555;padding:12px;border-radius:10px;outline:none;font-size:14px}
 .search:focus{border-color:#2f6feb}
-.option{background:#303030;padding:14px;border-radius:10px;margin-top:10px;cursor:pointer;transition:background .12s}
+.option{background:#303030;padding:13px 14px;border-radius:10px;margin-top:10px;cursor:pointer;transition:background .12s}
 .option:hover{background:#3a3a3a}
 .option.active{background:#2f6feb22;border:1px solid #2f6feb}
 .option small{color:#999}
 .option .desc{color:#999;font-size:12px;margin-top:2px}
+.mini-label{font-size:11px;color:#999;margin:16px 0 4px}
 .field-label{font-size:13px;margin:14px 0 6px;color:#ccc}
 .footer{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
 .footer .btn{margin-top:0}
@@ -159,6 +176,15 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 .list-item .acts span{cursor:pointer}
 .list-item .acts span:hover{color:#fff}
 .list-item .acts .del:hover{color:#f85149}
+.settings-tabs{display:flex;gap:4px;border-bottom:1px solid #333;margin-bottom:14px}
+.settings-tab{padding:8px 14px;font-size:12px;color:#999;cursor:pointer;border-bottom:2px solid transparent}
+.settings-tab.active{color:#fff;border-bottom-color:#2f6feb}
+.settings-pane{display:none}
+.settings-pane.active{display:block}
+.plugin-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #333}
+.plugin-row .n{flex:1;font-weight:500}
+.plugin-row .v{color:#999;font-size:12px}
+.plugin-row .e{color:#f85149;font-size:12px}
 
 /* ===== 状态栏 ===== */
 .statusbar{height:30px;border-top:1px solid #333;display:flex;align-items:center;gap:16px;padding:0 14px;font-size:12px;color:#999;flex-shrink:0}
@@ -176,34 +202,50 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 
   <aside class="sidebar">
     <div class="logo">Ferry</div>
-    <select class="project" id="workspaceSelect" title="工作空间"></select>
+    <div class="project-selector">
+      <div class="project-btn" id="projectBtn">
+        <span class="name" id="projectName">选择项目</span>
+        <span class="caret">▼</span>
+      </div>
+      <div class="project-menu" id="projectMenu">
+        <div id="projectMenuList"></div>
+        <div class="menu-sep"></div>
+        <div class="menu-item" id="btnNewProject">＋ 新建项目</div>
+      </div>
+    </div>
     <div class="btn" id="btnNewConfig">＋ 新建配置</div>
+    <div class="section">工作空间</div>
+    <div id="workspaceTree"><span style="color:#999;font-size:13px">选择项目后显示</span></div>
     <div class="section">配置</div>
-    <div id="configTree"><span style="color:#999;font-size:13px">加载中…</span></div>
+    <div id="unassignedTree"></div>
     <div class="spacer"></div>
     <div class="setting" id="btnSettings">⚙ 设置</div>
   </aside>
 
   <div class="main">
     <div class="top">
-      <span class="title" id="topTitle">Ferry</span>
-      <button class="topBtn" id="btnTemplates" title="为当前配置应用场景模板">⚡ 模板</button>
-      <button class="topBtn" id="btnVersions" title="版本留档与回滚">🕘 版本</button>
-      <button class="topBtn" id="btnArchive" title="存档包导出/导入">🗜 存档</button>
-      <button class="topBtn danger" id="btnReset" title="清空当前配置并恢复默认值">清空</button>
-      <button class="topBtn" id="btnValidate">校验</button>
-      <button class="topBtn primary" id="btnSource">源码</button>
+      <span class="crumb" id="crumbText"></span>
+      <span class="spacer"></span>
+      <button class="topBtn" id="btnSource">源码</button>
     </div>
 
     <div class="content">
-      <div class="editor">
+      <div class="welcome" id="welcome">
+        <div class="icon">F</div>
+        <h1>Ferry</h1>
+        <p>从模板开始，快速创建运维配置</p>
+        <button class="btn primary big" id="btnWelcomeNew">＋ 新建配置</button>
+        <div class="recent-label">最近使用</div>
+        <div class="recent" id="recentChips"></div>
+      </div>
+
+      <div class="editor" id="editor">
         <div class="editor-head">
           <h2 id="formTitle">Ferry</h2>
-          <p id="formSubtitle">从左侧选择配置开始编辑</p>
+          <p id="formSubtitle"></p>
           <div class="editor-tools">
             <button class="btn small" id="btnCollapseAll">折叠全部</button>
             <button class="btn small" id="btnExpandAll">展开全部</button>
-            <button class="btn small" id="btnCollapseDisabled">仅折叠未启用</button>
           </div>
         </div>
         <div id="formRoot"></div>
@@ -211,7 +253,7 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 
       <div class="source" id="sourcePanel">
         <div class="source-head">
-          <span class="name" id="sourceName">nginx.conf</span>
+          <span class="name" id="sourceName">config</span>
           <span class="acts">
             <span id="btnSourceFull" title="全屏/还原">⛶</span>
             <span id="btnSourceClose" title="关闭">×</span>
@@ -224,7 +266,7 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
         <pre class="code" id="previewCode"></pre>
         <textarea class="editor-ta" id="sourceEditor" style="display:none" spellcheck="false"></textarea>
         <div class="source-tools">
-          <button class="btn small primary" id="btnApplyEdit">应用修改（回填表单）</button>
+          <button class="btn small primary" id="btnApplyEdit">应用修改</button>
           <button class="btn small" id="btnImportFile">导入文件</button>
           <input id="importFile" type="file" style="display:none" />
           <input type="text" id="exportPath" placeholder="导出文件路径" />
@@ -243,6 +285,8 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
   </div>
 </div>
 
+<div class="ctx-menu" id="ctxMenu"></div>
+
 <!-- 新建配置向导 -->
 <div class="modal" id="wizardModal">
   <div class="window">
@@ -250,11 +294,13 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
       <h2>选择插件</h2>
       <p class="sub">选择要创建配置的能力</p>
       <input class="search" id="wzPluginSearch" placeholder="搜索插件…" />
+      <div id="wzRecentList"></div>
+      <div class="mini-label">全部插件</div>
       <div id="wzPluginList"></div>
     </div>
     <div class="step" id="wz2">
       <h2>选择模板</h2>
-      <p class="sub">模板由插件定义；不选择则使用空白默认配置</p>
+      <p class="sub">模板由插件定义；未选择则使用默认模板</p>
       <div id="wzTemplateList"></div>
     </div>
     <div class="step" id="wz3">
@@ -263,7 +309,7 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
       <div class="field-label">名称</div>
       <input type="text" id="wzName" placeholder="默认名称（如 nginx.conf）" />
       <div class="field-label">工作空间</div>
-      <select class="project" id="wzWorkspace" style="width:100%;margin-top:6px"></select>
+      <select id="wzWorkspace" style="width:100%;background:#171717;border:1px solid #555;padding:12px;border-radius:10px;color:#eee"></select>
       <div class="footer">
         <button class="btn" id="wzBack" style="display:none">上一步</button>
         <button class="btn" id="wzCancel">取消</button>
@@ -273,14 +319,15 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
   </div>
 </div>
 
-<!-- 模板应用 -->
-<div class="modal" id="templateModal">
+<!-- 移动工作空间 -->
+<div class="modal" id="moveModal">
   <div class="window">
-    <h2>快速模板</h2>
-    <p class="sub">应用到当前配置（将覆盖当前表单内容）</p>
-    <div id="templateList"></div>
+    <h2>移动工作空间</h2>
+    <p class="sub" id="moveTargetLabel"></p>
+    <select id="moveWorkspace" style="width:100%;background:#171717;border:1px solid #555;padding:12px;border-radius:10px;color:#eee"></select>
     <div class="footer">
-      <button class="btn" id="btnTemplateCancel">取消</button>
+      <button class="btn" id="btnMoveCancel">取消</button>
+      <button class="btn primary" id="btnMoveOk">移动</button>
     </div>
   </div>
 </div>
@@ -298,32 +345,31 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
   </div>
 </div>
 
-<!-- 存档 -->
-<div class="modal" id="archiveModal">
-  <div class="window">
-    <h2>存档包</h2>
-    <p class="sub">导出/导入包含插件定义与版本历史的 zip 包</p>
-    <div class="field-label">zip 路径</div>
-    <input type="text" id="archivePath" placeholder="C:\path\to\archive.zip" />
-    <div class="footer" style="justify-content:flex-start">
-      <button class="btn" id="btnExportWs">导出工作空间</button>
-      <button class="btn" id="btnExportCfg">导出配置</button>
-      <button class="btn primary" id="btnImportArchive">导入</button>
-    </div>
-    <div id="archiveResult" style="color:#999;font-size:12px;margin-top:10px"></div>
-  </div>
-</div>
-
 <!-- 设置 -->
 <div class="modal" id="settingsModal">
   <div class="window">
     <h2>设置</h2>
-    <p class="sub">日志与诊断信息</p>
-    <div class="field-label">日志文件</div>
-    <div id="settingsLogPath" style="color:#999;font-size:12px;word-break:break-all"></div>
-    <div class="footer">
-      <button class="btn" id="btnOpenLogs">打开日志</button>
-      <button class="btn" id="btnSettingsClose">关闭</button>
+    <div class="settings-tabs">
+      <button class="settings-tab active" data-pane="plugins">插件管理</button>
+      <button class="settings-tab" data-pane="templates">模板管理</button>
+      <button class="settings-tab" data-pane="system">系统设置</button>
+      <button class="settings-tab" data-pane="about">关于</button>
+    </div>
+    <div class="settings-pane active" id="pane-plugins"><div id="settingsPlugins"></div></div>
+    <div class="settings-pane" id="pane-templates"><div id="settingsTemplates"></div></div>
+    <div class="settings-pane" id="pane-system">
+      <div class="field-label">日志文件</div>
+      <div id="settingsLogPath" style="color:#999;font-size:12px;word-break:break-all"></div>
+      <div class="footer" style="justify-content:flex-start">
+        <button class="btn" id="btnOpenLogs">打开日志</button>
+        <button class="btn" id="btnImportArchive">导入存档包</button>
+      </div>
+      <input type="text" id="archivePath" style="margin-top:10px" placeholder="存档包 zip 路径（导入）" />
+      <div id="archiveResult" style="color:#999;font-size:12px;margin-top:8px"></div>
+    </div>
+    <div class="settings-pane" id="pane-about">
+      <div class="field-label">Ferry v2</div>
+      <div style="color:#999;font-size:12px">插件化运维配置生成工具 · 项目/工作空间/配置三层管理</div>
     </div>
   </div>
 </div>

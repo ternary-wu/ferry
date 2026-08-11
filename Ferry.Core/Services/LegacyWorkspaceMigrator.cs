@@ -47,7 +47,8 @@ public sealed class LegacyWorkspaceMigrator
             return new MigrationResult(0, new List<string>(), "旧工作区为空，跳过迁移");
         }
 
-        var workspace = FindOrCreateDefaultWorkspace();
+        var project = FindOrCreateDefaultProject();
+        var workspace = FindOrCreateDefaultWorkspace(project.Id);
         var missing = new List<string>();
         var created = 0;
 
@@ -86,6 +87,7 @@ public sealed class LegacyWorkspaceMigrator
             };
 
             _service.CreateConfig(
+                project.Id,
                 workspace.Id,
                 stub,
                 name: plugin?.DefaultFileName ?? $"{resolvedKey}.conf",
@@ -98,11 +100,18 @@ public sealed class LegacyWorkspaceMigrator
         return new MigrationResult(created, missing, null);
     }
 
-    private WorkspaceInfo FindOrCreateDefaultWorkspace()
+    private ProjectInfo FindOrCreateDefaultProject()
+    {
+        const string defaultName = "默认项目";
+        return _service.ListProjects().FirstOrDefault(p => p.Name == defaultName)
+            ?? _service.CreateProject(defaultName);
+    }
+
+    private WorkspaceInfo FindOrCreateDefaultWorkspace(string projectId)
     {
         const string defaultName = "默认工作空间";
         var existing = _service.ListWorkspaces().FirstOrDefault(w => w.Name == defaultName);
-        return existing ?? _service.CreateWorkspace(defaultName);
+        return existing ?? _service.CreateWorkspace(projectId, defaultName);
     }
 
     private static Dictionary<string, bool> ReadBoolMap(JsonNode? node)

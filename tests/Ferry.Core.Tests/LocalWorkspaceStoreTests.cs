@@ -25,11 +25,13 @@ public class LocalWorkspaceStoreTests : IDisposable
     public void SaveAndLoad_WorkspaceAndConfig_RoundTrip()
     {
         var now = DateTimeOffset.Now;
-        _store.SaveWorkspace(new WorkspaceInfo("ws1", "项目A", now, now));
+        _store.SaveProject(new ProjectInfo("p1", "项目A", now, now));
+        _store.SaveWorkspace(new WorkspaceInfo("ws1", "p1", "项目A", now, now));
 
         var config = new ConfigData
         {
             Id = "cfg1",
+            ProjectId = "p1",
             WorkspaceId = "ws1",
             Name = "nginx.conf",
             PluginKey = "Nginx",
@@ -70,10 +72,12 @@ public class LocalWorkspaceStoreTests : IDisposable
     [Fact]
     public void SaveVersion_SetsCurrentVersionId_And_ListWorks()
     {
-        _store.SaveWorkspace(new WorkspaceInfo("ws1", "项目A", DateTimeOffset.Now, DateTimeOffset.Now));
+        _store.SaveProject(new ProjectInfo("p1", "项目A", DateTimeOffset.Now, DateTimeOffset.Now));
+        _store.SaveWorkspace(new WorkspaceInfo("ws1", "p1", "项目A", DateTimeOffset.Now, DateTimeOffset.Now));
         _store.SaveConfig(new ConfigData
         {
             Id = "cfg1",
+            ProjectId = "p1",
             WorkspaceId = "ws1",
             Name = "a.conf",
             SourceText = "v1"
@@ -91,7 +95,8 @@ public class LocalWorkspaceStoreTests : IDisposable
     [Fact]
     public void DeleteConfig_RemovesVersions()
     {
-        _store.SaveWorkspace(new WorkspaceInfo("ws1", "项目A", DateTimeOffset.Now, DateTimeOffset.Now));
+        _store.SaveProject(new ProjectInfo("p1", "项目A", DateTimeOffset.Now, DateTimeOffset.Now));
+        _store.SaveWorkspace(new WorkspaceInfo("ws1", "p1", "项目A", DateTimeOffset.Now, DateTimeOffset.Now));
         _store.SaveConfig(new ConfigData { Id = "cfg1", WorkspaceId = "ws1", Name = "a.conf" });
         _store.SaveVersion(new VersionSnapshot("ver1", "cfg1", "v1", DateTimeOffset.Now, null));
 
@@ -104,7 +109,8 @@ public class LocalWorkspaceStoreTests : IDisposable
     [Fact]
     public void DeleteWorkspace_CascadesConfigsAndVersions()
     {
-        _store.SaveWorkspace(new WorkspaceInfo("ws1", "项目A", DateTimeOffset.Now, DateTimeOffset.Now));
+        _store.SaveProject(new ProjectInfo("p1", "项目A", DateTimeOffset.Now, DateTimeOffset.Now));
+        _store.SaveWorkspace(new WorkspaceInfo("ws1", "p1", "项目A", DateTimeOffset.Now, DateTimeOffset.Now));
         _store.SaveConfig(new ConfigData { Id = "cfg1", WorkspaceId = "ws1", Name = "a.conf" });
         _store.SaveVersion(new VersionSnapshot("ver1", "cfg1", "v1", DateTimeOffset.Now, null));
 
@@ -113,5 +119,28 @@ public class LocalWorkspaceStoreTests : IDisposable
         Assert.Empty(_store.ListWorkspaces());
         Assert.Empty(_store.ListConfigs("ws1"));
         Assert.Empty(_store.ListVersions("ws1", "cfg1"));
+    }
+
+    [Fact]
+    public void ProjectCrud_And_DeleteProject_Cascades()
+    {
+        _store.SaveProject(new ProjectInfo("p1", "项目A", DateTimeOffset.Now, DateTimeOffset.Now));
+        _store.SaveWorkspace(new WorkspaceInfo("ws1", "p1", "生产", DateTimeOffset.Now, DateTimeOffset.Now));
+        _store.SaveConfig(new ConfigData
+        {
+            Id = "cfg1",
+            ProjectId = "p1",
+            WorkspaceId = "ws1",
+            Name = "nginx.conf"
+        });
+
+        Assert.Single(_store.ListProjects());
+        Assert.Equal("项目A", _store.GetProject("p1")!.Name);
+
+        _store.DeleteProject("p1");
+
+        Assert.Empty(_store.ListProjects());
+        Assert.Empty(_store.ListWorkspaces());
+        Assert.Empty(_store.ListConfigs("ws1"));
     }
 }

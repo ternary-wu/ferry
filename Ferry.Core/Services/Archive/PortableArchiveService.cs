@@ -41,8 +41,8 @@ public sealed class PortableArchiveService
     /// <summary>导出整个工作空间（含全部配置、版本历史与所用插件定义）。</summary>
     public void ExportWorkspace(string workspaceId, string zipPath)
     {
-        var workspace = _service.ListWorkspaces().FirstOrDefault(w => w.Id == workspaceId)
-            ?? throw new InvalidOperationException($"工作空间不存在：{workspaceId}");
+        var workspace = ResolveWorkspace(workspaceId, "未归类配置");
+        var project = _service.GetProject(workspace.ProjectId);
         var configs = _service.ListConfigs(workspaceId);
 
         if (File.Exists(zipPath))
@@ -50,7 +50,7 @@ public sealed class PortableArchiveService
             File.Delete(zipPath);
         }
         using var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create);
-        WriteManifest(zip, workspace, configs);
+        WriteManifest(zip, project, workspace, configs);
         foreach (var info in configs)
         {
             var config = _service.LoadConfig(workspaceId, info.Id);
@@ -65,17 +65,17 @@ public sealed class PortableArchiveService
     /// <summary>导出单个配置（含版本历史与所用插件定义）。</summary>
     public void ExportConfig(string workspaceId, string configId, string zipPath)
     {
-        var workspace = _service.ListWorkspaces().FirstOrDefault(w => w.Id == workspaceId)
-            ?? throw new InvalidOperationException($"工作空间不存在：{workspaceId}");
         var config = _service.LoadConfig(workspaceId, configId)
             ?? throw new InvalidOperationException($"配置不存在：{configId}");
+        var workspace = ResolveWorkspace(workspaceId, config.WorkspaceId == string.Empty ? "未归类配置" : "工作空间");
+        var project = _service.GetProject(workspace.ProjectId);
 
         if (File.Exists(zipPath))
         {
             File.Delete(zipPath);
         }
         using var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create);
-        WriteManifest(zip, workspace, _service.ListConfigs(workspaceId).Where(c => c.Id == configId).ToList());
+        WriteManifest(zip, project, workspace, _service.ListConfigs(workspaceId).Where(c => c.Id == configId).ToList());
         WriteConfig(zip, workspace, config);
         WritePlugin(zip, WorkspaceService.ResolvePlugin(_plugins, config));
     }
@@ -92,20 +92,28 @@ public sealed class PortableArchiveService
         {
             using var zip = ZipFile.OpenRead(zipPath);
             var manifest = ReadManifest(zip);
-            var workspaceName = manifest?["workspaceName"]?.GetValue<string>() ?? "导入的工作空间";
-            var workspace = _service.ListWorkspaces().FirstOrDefault(w => w.Name == workspaceName)
-                ?? _service.CreateWorkspace(workspaceName);
-            result.WorkspaceId = workspace.Id;
+            var projectName = manifest?["projectName"]?.GetValue<string>() ?? "导入的项目";
+            var project = _service.ListProjects().FirstOrDefault(p => p.Name == projectName)
+                ?? _service.CreateProject(projectName);
 
             var entries = manifest?["entries"] as JsonArray ?? new JsonArray();
             foreach (var entryNode in entries)
             {
                 var configId = entryNode?["configId"]?.GetValue<string>();
+                var workspaceName = entryNode?["workspaceName"]?.GetValue<string>() ?? string.Empty;
+                var workspaceId = string.Empty;
+                if (!string.IsNullOrEmpty(workspaceName) && workspaceName != "未归类配置")
+                {
+                    workspaceId = _service.ListWorkspaces(project.Id)
+                        .FirstOrDefault(w => w.Name == workspaceName)?.Id
+                        ?? _service.CreateWorkspace(project.Id, workspaceName).Id;
+                }
+                result.WorkspaceId ??= workspaceId;
                 if (string.IsNullOrEmpty(configId))
                 {
                     continue;
                 }
-                if (_service.LoadConfig(workspace.Id, configId) is not null)
+                if (_service.LoadConfig(workspaceId, configId) is not null)
                 {
                     result.SkippedConfigs++;
                     continue;
@@ -146,7 +154,8 @@ public sealed class PortableArchiveService
                 }
 
                 var config = _service.CreateConfig(
-                    workspace.Id,
+                    project.Id,
+                    workspaceId,
                     stub,
                     name: configNode["name"]?.GetValue<string>() ?? stub.DefaultFileName,
                     sourceText: configNode["sourceText"]?.GetValue<string>() ?? string.Empty,
@@ -220,6 +229,7 @@ public sealed class PortableArchiveService
 
     private static void WriteManifest(
         ZipArchive zip,
+        ProjectInfo? project,
         WorkspaceInfo workspace,
         IReadOnlyList<ConfigInfo> configs)
     {
@@ -228,6 +238,7 @@ public sealed class PortableArchiveService
             {
                 ["configId"] = info.Id,
                 ["configName"] = info.Name,
+                ["workspaceName"] = string.IsNullOrEmpty(info.WorkspaceId) ? "未归类配置" : workspace.Name,
                 ["pluginKey"] = info.PluginKey,
                 ["pluginVersion"] = info.PluginVersion
             })
@@ -236,6 +247,8 @@ public sealed class PortableArchiveService
         {
             ["formatVersion"] = 1,
             ["exportedAt"] = DateTimeOffset.Now.ToString("O", CultureInfo.InvariantCulture),
+            ["projectId"] = project?.Id,
+            ["projectName"] = project?.Name ?? "默认项目",
             ["workspaceId"] = workspace.Id,
             ["workspaceName"] = workspace.Name,
             ["entries"] = new JsonArray(entries)
@@ -408,5 +421,9 @@ public sealed class PortableArchiveService
             list.Add(value);
         }
     }
+
+    private WorkspaceInfo ResolveWorkspace(string workspaceId, string fallbackName)
+        => _service.ListWorkspaces().FirstOrDefault(w => w.Id == workspaceId)
+            ?? new WorkspaceInfo(workspaceId, string.Empty, fallbackName, DateTimeOffset.MinValue, DateTimeOffset.MinValue);
 
 }

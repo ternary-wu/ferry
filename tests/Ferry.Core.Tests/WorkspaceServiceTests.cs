@@ -29,14 +29,18 @@ public class WorkspaceServiceTests : IDisposable
         return manager.LoadAllPlugins().Single(p => p.PluginKey == "Nginx");
     }
 
+    private ProjectInfo NewProject() => _service.CreateProject("项目A");
+
     [Fact]
     public void CreateAndRenameWorkspace()
     {
-        var ws = _service.CreateWorkspace("项目A");
-        Assert.Equal("项目A", ws.Name);
+        var project = NewProject();
+        var ws = _service.CreateWorkspace(project.Id, "生产环境");
+        Assert.Equal("生产环境", ws.Name);
+        Assert.Equal(project.Id, ws.ProjectId);
 
-        var renamed = _service.RenameWorkspace(ws.Id, "项目B");
-        Assert.Equal("项目B", renamed.Name);
+        var renamed = _service.RenameWorkspace(ws.Id, "测试环境");
+        Assert.Equal("测试环境", renamed.Name);
         Assert.Single(_service.ListWorkspaces());
     }
 
@@ -44,20 +48,23 @@ public class WorkspaceServiceTests : IDisposable
     public void CreateConfig_UsesPluginDefaultFileName()
     {
         var nginx = LoadNginx();
-        var ws = _service.CreateWorkspace("项目A");
+        var project = NewProject();
+        var ws = _service.CreateWorkspace(project.Id, "生产环境");
 
-        var config = _service.CreateConfig(ws.Id, nginx);
+        var config = _service.CreateConfig(project.Id, ws.Id, nginx);
 
         Assert.Equal("nginx.conf", config.Name);
         Assert.Equal("Nginx", config.PluginKey);
+        Assert.Equal(project.Id, config.ProjectId);
         Assert.Equal(nginx.Version, config.PluginVersion);
     }
 
     [Fact]
     public void Snapshot_And_RestoreVersion()
     {
-        var ws = _service.CreateWorkspace("项目A");
-        var config = _service.CreateConfig(ws.Id, LoadNginx(), sourceText: "v1 源码");
+        var project = NewProject();
+        var ws = _service.CreateWorkspace(project.Id, "生产环境");
+        var config = _service.CreateConfig(project.Id, ws.Id, LoadNginx(), sourceText: "v1 源码");
 
         var snapshot = _service.SnapshotVersion(config, "初始");
         config.SourceText = "v2 源码";
@@ -67,6 +74,50 @@ public class WorkspaceServiceTests : IDisposable
         Assert.Equal("v1 源码", restored.SourceText);
         Assert.Empty(restored.Values);
         Assert.Single(_service.ListVersions(ws.Id, config.Id));
+    }
+
+    [Fact]
+    public void Project_UnassignedConfig_And_Move()
+    {
+        var project = NewProject();
+        var ws = _service.CreateWorkspace(project.Id, "生产环境");
+        var nginx = LoadNginx();
+
+        var unassigned = _service.CreateConfig(project.Id, string.Empty, nginx, name: "demo-nginx");
+        Assert.Single(_service.ListUnassignedConfigs(project.Id));
+        Assert.Contains(_service.ListUnassignedConfigs(project.Id), c => c.Id == unassigned.Id);
+
+        var moved = _service.MoveConfig(unassigned.Id, ws.Id);
+        Assert.Equal(ws.Id, moved.WorkspaceId);
+        Assert.Empty(_service.ListUnassignedConfigs(project.Id));
+        Assert.Contains(_service.ListConfigs(ws.Id), c => c.Id == unassigned.Id);
+    }
+
+    [Fact]
+    public void EnsureDefaultProject_MigratesLegacyWorkspaces()
+    {
+        var now = DateTimeOffset.Now;
+        var file = Path.Combine(Path.GetTempPath(), $"ferry-ensure-{Guid.NewGuid():N}.json");
+        var store = new LocalWorkspaceStore(file);
+        try
+        {
+            // 模拟旧数据：工作空间无项目归属
+            store.SaveWorkspace(new WorkspaceInfo("legacy", string.Empty, "旧工作空间", now, now));
+            var service = new WorkspaceService(store);
+
+            var project = service.EnsureDefaultProject();
+
+            Assert.Equal("默认项目", project.Name);
+            var migrated = Assert.Single(service.ListWorkspaces());
+            Assert.Equal(project.Id, migrated.ProjectId);
+        }
+        finally
+        {
+            if (File.Exists(file))
+            {
+                File.Delete(file);
+            }
+        }
     }
 
     [Fact]

@@ -27,6 +27,87 @@ public sealed class LocalWorkspaceStore : IWorkspaceStore
             "workspace.json");
     }
 
+    public IReadOnlyList<ProjectInfo> ListProjects()
+    {
+        lock (_sync)
+        {
+            var array = LoadRoot()["projects"] as JsonArray ?? new JsonArray();
+            return array.Select(n => ParseProject(n!)).ToList();
+        }
+    }
+
+    public ProjectInfo? GetProject(string projectId)
+    {
+        lock (_sync)
+        {
+            var array = LoadRoot()["projects"] as JsonArray ?? new JsonArray();
+            return array
+                .Select(n => ParseProject(n!))
+                .FirstOrDefault(p => p.Id == projectId);
+        }
+    }
+
+    public void SaveProject(ProjectInfo project)
+    {
+        lock (_sync)
+        {
+            var root = LoadRoot();
+            var array = root["projects"] as JsonArray ?? new JsonArray();
+            var existing = array.FirstOrDefault(n => n?["id"]?.GetValue<string>() == project.Id);
+            if (existing is not null)
+            {
+                array.Remove(existing);
+            }
+            array.Add(ToProjectNode(project));
+            root["projects"] = array;
+            Save(root);
+        }
+    }
+
+    public void DeleteProject(string projectId)
+    {
+        lock (_sync)
+        {
+            var root = LoadRoot();
+            var projects = root["projects"] as JsonArray ?? new JsonArray();
+            var existing = projects.FirstOrDefault(n => n?["id"]?.GetValue<string>() == projectId);
+            if (existing is not null)
+            {
+                projects.Remove(existing);
+            }
+            root["projects"] = projects;
+
+            // 级联删除该项目下的工作空间、配置与版本
+            var workspaces = root["workspaces"] as JsonArray;
+            var configs = root["configs"] as JsonObject;
+            var versions = root["versions"] as JsonObject;
+            if (workspaces is not null)
+            {
+                var toRemove = workspaces
+                    .Where(n => n?["projectId"]?.GetValue<string>() == projectId)
+                    .ToList();
+                foreach (var ws in toRemove)
+                {
+                    var wsId = ws!["id"]!.GetValue<string>();
+                    workspaces.Remove(ws);
+                    if (configs is not null && configs[wsId] is JsonArray configArray)
+                    {
+                        foreach (var configNode in configArray)
+                        {
+                            var configId = configNode?["id"]?.GetValue<string>();
+                            if (configId is not null && versions is not null)
+                            {
+                                versions.Remove(configId);
+                            }
+                        }
+                        configs.Remove(wsId);
+                    }
+                }
+            }
+            Save(root);
+        }
+    }
+
     public IReadOnlyList<WorkspaceInfo> ListWorkspaces()
     {
         lock (_sync)
@@ -153,6 +234,22 @@ public sealed class LocalWorkspaceStore : IWorkspaceStore
         }
     }
 
+    public void RemoveConfig(string workspaceId, string configId)
+    {
+        lock (_sync)
+        {
+            var root = LoadRoot();
+            var configs = root["configs"] as JsonObject;
+            var array = configs?[workspaceId] as JsonArray;
+            var existing = array?.FirstOrDefault(n => n?["id"]?.GetValue<string>() == configId);
+            if (existing is not null)
+            {
+                array!.Remove(existing);
+            }
+            Save(root);
+        }
+    }
+
     public IReadOnlyList<VersionSnapshot> ListVersions(string workspaceId, string configId)
     {
         lock (_sync)
@@ -249,15 +346,35 @@ public sealed class LocalWorkspaceStore : IWorkspaceStore
     private static JsonObject ToWorkspaceNode(WorkspaceInfo workspace) => new()
     {
         ["id"] = workspace.Id,
+        ["projectId"] = workspace.ProjectId,
         ["name"] = workspace.Name,
         ["createdAt"] = workspace.CreatedAt.ToString("O", CultureInfo.InvariantCulture),
         ["updatedAt"] = workspace.UpdatedAt.ToString("O", CultureInfo.InvariantCulture)
+    };
+
+    private static JsonObject ToProjectNode(ProjectInfo project) => new()
+    {
+        ["id"] = project.Id,
+        ["name"] = project.Name,
+        ["createdAt"] = project.CreatedAt.ToString("O", CultureInfo.InvariantCulture),
+        ["updatedAt"] = project.UpdatedAt.ToString("O", CultureInfo.InvariantCulture)
     };
 
     private static WorkspaceInfo ParseWorkspace(JsonNode node)
     {
         var o = node.AsObject();
         return new WorkspaceInfo(
+            o["id"]!.GetValue<string>(),
+            o["projectId"]?.GetValue<string>() ?? string.Empty,
+            o["name"]!.GetValue<string>(),
+            ParseDate(o["createdAt"]),
+            ParseDate(o["updatedAt"]));
+    }
+
+    private static ProjectInfo ParseProject(JsonNode node)
+    {
+        var o = node.AsObject();
+        return new ProjectInfo(
             o["id"]!.GetValue<string>(),
             o["name"]!.GetValue<string>(),
             ParseDate(o["createdAt"]),
@@ -267,6 +384,7 @@ public sealed class LocalWorkspaceStore : IWorkspaceStore
     private static JsonObject ToConfigNode(ConfigData config) => new()
     {
         ["id"] = config.Id,
+        ["projectId"] = config.ProjectId,
         ["workspaceId"] = config.WorkspaceId,
         ["name"] = config.Name,
         ["pluginKey"] = config.PluginKey,
@@ -298,6 +416,7 @@ public sealed class LocalWorkspaceStore : IWorkspaceStore
         return new ConfigData
         {
             Id = o["id"]!.GetValue<string>(),
+            ProjectId = o["projectId"]?.GetValue<string>() ?? string.Empty,
             WorkspaceId = o["workspaceId"]!.GetValue<string>(),
             Name = o["name"]!.GetValue<string>(),
             PluginKey = o["pluginKey"]!.GetValue<string>(),

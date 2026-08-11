@@ -19,10 +19,46 @@ public sealed class WorkspaceService
         _store = store;
     }
 
-    public WorkspaceInfo CreateWorkspace(string name)
+    public ProjectInfo CreateProject(string name)
     {
         var now = DateTimeOffset.Now;
-        var workspace = new WorkspaceInfo(NewId(), name, now, now);
+        var project = new ProjectInfo(NewId(), name, now, now);
+        _store.SaveProject(project);
+        return project;
+    }
+
+    public ProjectInfo RenameProject(string projectId, string name)
+    {
+        var project = _store.GetProject(projectId)
+            ?? throw new InvalidOperationException($"项目不存在：{projectId}");
+        var renamed = project with { Name = name, UpdatedAt = DateTimeOffset.Now };
+        _store.SaveProject(renamed);
+        return renamed;
+    }
+
+    public void DeleteProject(string projectId) => _store.DeleteProject(projectId);
+    public IReadOnlyList<ProjectInfo> ListProjects() => _store.ListProjects();
+    public ProjectInfo? GetProject(string projectId) => _store.GetProject(projectId);
+
+    /// <summary>
+    /// 保证存在默认项目，并把历史遗留的"无项目"工作空间归入其中（数据迁移兜底）。
+    /// </summary>
+    public ProjectInfo EnsureDefaultProject()
+    {
+        const string defaultName = "默认项目";
+        var project = _store.ListProjects().FirstOrDefault(p => p.Name == defaultName)
+            ?? CreateProject(defaultName);
+        foreach (var workspace in _store.ListWorkspaces().Where(w => string.IsNullOrEmpty(w.ProjectId)))
+        {
+            _store.SaveWorkspace(workspace with { ProjectId = project.Id });
+        }
+        return project;
+    }
+
+    public WorkspaceInfo CreateWorkspace(string projectId, string name)
+    {
+        var now = DateTimeOffset.Now;
+        var workspace = new WorkspaceInfo(NewId(), projectId, name, now, now);
         _store.SaveWorkspace(workspace);
         return workspace;
     }
@@ -41,12 +77,19 @@ public sealed class WorkspaceService
     }
 
     public void DeleteWorkspace(string workspaceId) => _store.DeleteWorkspace(workspaceId);
-    public IReadOnlyList<WorkspaceInfo> ListWorkspaces() => _store.ListWorkspaces();
+    public IReadOnlyList<WorkspaceInfo> ListWorkspaces(string? projectId = null)
+    {
+        var all = _store.ListWorkspaces();
+        return projectId is null
+            ? all
+            : all.Where(w => w.ProjectId == projectId).ToList();
+    }
 
     /// <summary>
     /// 新建配置：名字默认取插件默认文件名；可传入初始源码或 values/enabled 缓存。
     /// </summary>
     public ConfigData CreateConfig(
+        string projectId,
         string workspaceId,
         PluginDescriptor plugin,
         string? name = null,
@@ -57,6 +100,7 @@ public sealed class WorkspaceService
         var config = new ConfigData
         {
             Id = NewId(),
+            ProjectId = projectId,
             WorkspaceId = workspaceId,
             Name = string.IsNullOrWhiteSpace(name) ? plugin.DefaultFileName : name,
             PluginKey = plugin.PluginKey,
@@ -65,6 +109,27 @@ public sealed class WorkspaceService
             Values = values ?? new Dictionary<string, object?>(),
             Enabled = enabled ?? new Dictionary<string, bool>()
         };
+        _store.SaveConfig(config);
+        return config;
+    }
+
+    /// <summary>未归类配置（不属于任何工作空间）。</summary>
+    public IReadOnlyList<ConfigInfo> ListUnassignedConfigs(string projectId)
+        => _store.ListConfigs(string.Empty)
+            .Where(c => c.WorkspaceId == string.Empty)
+            .ToList();
+
+    /// <summary>移动配置到目标工作空间（空字符串 = 未归类）。</summary>
+    public ConfigData MoveConfig(string configId, string targetWorkspaceId)
+    {
+        var config = FindConfigAnywhere(configId)
+            ?? throw new InvalidOperationException($"配置不存在：{configId}");
+        var fromWorkspaceId = config.WorkspaceId;
+        config.WorkspaceId = targetWorkspaceId;
+        if (fromWorkspaceId != targetWorkspaceId)
+        {
+            _store.RemoveConfig(fromWorkspaceId, configId);
+        }
         _store.SaveConfig(config);
         return config;
     }
@@ -136,4 +201,17 @@ public sealed class WorkspaceService
             && plugin.Version != config.PluginVersion;
 
     private static string NewId() => Guid.NewGuid().ToString("N");
+
+    private ConfigData? FindConfigAnywhere(string configId)
+    {
+        foreach (var workspace in _store.ListWorkspaces())
+        {
+            var config = _store.LoadConfig(workspace.Id, configId);
+            if (config is not null)
+            {
+                return config;
+            }
+        }
+        return _store.LoadConfig(string.Empty, configId);
+    }
 }

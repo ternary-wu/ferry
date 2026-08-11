@@ -104,14 +104,21 @@ public static class Program
             {
                 "bootstrap" => Bootstrap(ctx),
                 "plugins:reload" => PluginsReload(ctx),
+                "projects:list" => ProjectsList(ctx),
+                "project:create" => ProjectCreate(ctx, request!),
+                "project:rename" => ProjectRename(ctx, request!),
+                "project:delete" => ProjectDelete(ctx, request!),
                 "workspaces:list" => WorkspacesList(ctx),
                 "workspace:create" => WorkspaceCreate(ctx, request!),
                 "workspace:rename" => WorkspaceRename(ctx, request!),
                 "workspace:delete" => WorkspaceDelete(ctx, request!),
+                "nav:tree" => NavTree(ctx, request!),
                 "configs:list" => ConfigsList(ctx, request!),
+                "configs:unassigned" => ConfigsUnassigned(ctx, request!),
                 "config:create" => ConfigCreate(ctx, request!),
                 "config:open" => ConfigOpen(ctx, request!),
                 "config:delete" => ConfigDelete(ctx, request!),
+                "config:move" => ConfigMove(ctx, request!),
                 "config:reset" => ConfigReset(ctx, request!),
                 "config:saveSource" => ConfigSaveSource(ctx, request!),
                 "config:exportTo" => ConfigExportTo(ctx, request!),
@@ -185,10 +192,12 @@ public static class Program
     {
         var plugins = ctx.PluginManager.LoadAllPlugins();
         ctx.RefreshArchivePlugins();
+        var defaultProject = ctx.Workspaces.EnsureDefaultProject();
         return new JsonObject
         {
             ["ok"] = true,
             ["plugins"] = Node(plugins.Select(ToPluginDto)),
+            ["projects"] = Node(ctx.Workspaces.ListProjects()),
             ["workspaces"] = Node(ctx.Workspaces.ListWorkspaces()),
             ["loadErrors"] = Node(ctx.PluginManager.LoadErrors)
         };
@@ -212,10 +221,65 @@ public static class Program
             ["workspaces"] = Node(ctx.Workspaces.ListWorkspaces())
         });
 
+    /// <summary>导航树：项目下的工作空间（含配置）+ 未归类配置，一次拉取。</summary>
+    private static JsonObject NavTree(HostContext ctx, JsonObject request)
+    {
+        var projectId = request["projectId"]!.GetValue<string>();
+        var workspaceNodes = ctx.Workspaces.ListWorkspaces(projectId)
+            .Select(ws => (JsonNode)new JsonObject
+            {
+                ["id"] = ws.Id,
+                ["name"] = ws.Name,
+                ["configs"] = new JsonArray(
+                    ctx.Workspaces.ListConfigs(ws.Id)
+                        .Select(info => ToConfigDto(ctx, ws.Id, info))
+                        .ToArray())
+            })
+            .ToArray();
+        var unassigned = ctx.Workspaces.ListUnassignedConfigs(projectId)
+            .Select(info => ToConfigDto(ctx, string.Empty, info))
+            .ToArray();
+        return Ok(new JsonObject
+        {
+            ["workspaces"] = new JsonArray(workspaceNodes),
+            ["unassigned"] = new JsonArray(unassigned)
+        });
+    }
+
+    private static JsonObject ProjectsList(HostContext ctx)
+        => Ok(new JsonObject
+        {
+            ["projects"] = Node(ctx.Workspaces.ListProjects())
+        });
+
+    private static JsonObject ProjectCreate(HostContext ctx, JsonObject request)
+    {
+        var name = request["name"]?.GetValue<string>() ?? "未命名项目";
+        var project = ctx.Workspaces.CreateProject(name);
+        return Ok(new JsonObject { ["project"] = Node(project) });
+    }
+
+    private static JsonObject ProjectRename(HostContext ctx, JsonObject request)
+    {
+        var project = ctx.Workspaces.RenameProject(
+            request["id"]!.GetValue<string>(),
+            request["name"]!.GetValue<string>());
+        return Ok(new JsonObject { ["project"] = Node(project) });
+    }
+
+    private static JsonObject ProjectDelete(HostContext ctx, JsonObject request)
+    {
+        ctx.Workspaces.DeleteProject(request["id"]!.GetValue<string>());
+        return Ok();
+    }
+
     private static JsonObject WorkspaceCreate(HostContext ctx, JsonObject request)
     {
         var name = request["name"]?.GetValue<string>() ?? "未命名工作空间";
-        var workspace = ctx.Workspaces.CreateWorkspace(name);
+        var projectId = request["projectId"]?.GetValue<string>()
+            ?? ctx.Workspaces.ListProjects().FirstOrDefault()?.Id
+            ?? ctx.Workspaces.EnsureDefaultProject().Id;
+        var workspace = ctx.Workspaces.CreateWorkspace(projectId, name);
         return Ok(new JsonObject { ["workspace"] = Node(workspace) });
     }
 
@@ -237,28 +301,42 @@ public static class Program
     {
         var workspaceId = request["workspaceId"]!.GetValue<string>();
         var infos = ctx.Workspaces.ListConfigs(workspaceId);
-        var dtos = infos.Select(info =>
-        {
-            var config = ctx.Workspaces.LoadConfig(workspaceId, info.Id);
-            var plugin = WorkspaceService.ResolvePlugin(ctx.Plugins, config ?? new ConfigData());
-            return (JsonNode)new JsonObject
-            {
-                ["id"] = info.Id,
-                ["name"] = info.Name,
-                ["pluginKey"] = info.PluginKey,
-                ["pluginVersion"] = info.PluginVersion,
-                ["pluginName"] = plugin?.Name ?? info.PluginKey,
-                ["pluginMissing"] = plugin is null,
-                ["updatedAt"] = info.UpdatedAt.ToString("yyyy-MM-dd HH:mm"),
-                ["currentVersionId"] = info.CurrentVersionId
-            };
-        }).ToArray();
+        var dtos = infos.Select(info => ToConfigDto(ctx, workspaceId, info)).ToArray();
         return Ok(new JsonObject { ["configs"] = new JsonArray(dtos) });
+    }
+
+    private static JsonObject ConfigsUnassigned(HostContext ctx, JsonObject request)
+    {
+        var projectId = request["projectId"]!.GetValue<string>();
+        var dtos = ctx.Workspaces.ListUnassignedConfigs(projectId)
+            .Select(info => ToConfigDto(ctx, string.Empty, info))
+            .ToArray();
+        return Ok(new JsonObject { ["configs"] = new JsonArray(dtos) });
+    }
+
+    private static JsonNode ToConfigDto(HostContext ctx, string workspaceId, ConfigInfo info)
+    {
+        var config = ctx.Workspaces.LoadConfig(workspaceId, info.Id);
+        var plugin = WorkspaceService.ResolvePlugin(ctx.Plugins, config ?? new ConfigData());
+        return new JsonObject
+        {
+            ["id"] = info.Id,
+            ["name"] = info.Name,
+            ["pluginKey"] = info.PluginKey,
+            ["pluginVersion"] = info.PluginVersion,
+            ["pluginName"] = plugin?.Name ?? info.PluginKey,
+            ["pluginMissing"] = plugin is null,
+            ["updatedAt"] = info.UpdatedAt.ToString("yyyy-MM-dd HH:mm"),
+            ["currentVersionId"] = info.CurrentVersionId
+        };
     }
 
     private static JsonObject ConfigCreate(HostContext ctx, JsonObject request)
     {
-        var workspaceId = request["workspaceId"]!.GetValue<string>();
+        var projectId = request["projectId"]?.GetValue<string>()
+            ?? ctx.Workspaces.ListProjects().FirstOrDefault()?.Id
+            ?? ctx.Workspaces.EnsureDefaultProject().Id;
+        var workspaceId = request["workspaceId"]?.GetValue<string>() ?? string.Empty;
         var pluginKey = request["pluginKey"]!.GetValue<string>();
         var name = request["name"]?.GetValue<string>();
         var plugin = ctx.Plugins.FirstOrDefault(p => p.PluginKey == pluginKey)
@@ -275,12 +353,21 @@ public static class Program
             // 插件 schema 缺失时仅建空配置
         }
         var config = ctx.Workspaces.CreateConfig(
+            projectId,
             workspaceId,
             plugin,
             name: name,
             sourceText: sourceText,
             values: session.GetState().Values,
             enabled: session.GetState().Enabled);
+        return Ok(new JsonObject { ["configId"] = config.Id });
+    }
+
+    private static JsonObject ConfigMove(HostContext ctx, JsonObject request)
+    {
+        var config = ctx.Workspaces.MoveConfig(
+            request["configId"]!.GetValue<string>(),
+            request["workspaceId"]?.GetValue<string>() ?? string.Empty);
         return Ok(new JsonObject { ["configId"] = config.Id });
     }
 
