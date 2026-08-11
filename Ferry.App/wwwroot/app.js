@@ -327,23 +327,16 @@ function renderCard(node, depth) {
     group.appendChild(titleBox);
     head.appendChild(group);
 
-    if (node.isModule) {
-      const box = document.createElement("div");
-      box.className = "tree-checkbox" + (node.isEnabled ? " checked" : "");
-      box.title = node.canToggleEnabled ? "" : "父级未启用时锁定";
-      box.style.cursor = node.canToggleEnabled ? "pointer" : "not-allowed";
-      box.onclick = (e) => {
-        e.stopPropagation();
-        if (!node.canToggleEnabled) return;
-        send("form:toggle", { path: node.path, enabled: !node.isEnabled }, applyFormUpdate);
-      };
-      head.appendChild(box);
+    if (!node.required) {
+      head.appendChild(renderEnableControl(node));
       if (node.enabledChildModulesText) {
         const count = document.createElement("span");
         count.className = "form-card-count";
         count.textContent = node.enabledChildModulesText;
         head.appendChild(count);
       }
+    } else {
+      head.appendChild(renderLockBadge());
     }
     const toggle = document.createElement("span");
     toggle.className = "form-card-toggle";
@@ -361,11 +354,17 @@ function renderCard(node, depth) {
 
   if (node.type === "Array") {
     const box = document.createElement("div");
+    const arrayHead = document.createElement("div");
+    arrayHead.style.display = "flex";
+    arrayHead.style.alignItems = "center";
+    arrayHead.style.gap = "8px";
     const label = document.createElement("div");
     label.className = "form-field-name";
     label.textContent = node.label || node.id;
     label.title = node.description || "";
-    box.appendChild(label);
+    arrayHead.appendChild(node.required ? renderLockBadge() : renderEnableControl(node));
+    arrayHead.appendChild(label);
+    box.appendChild(arrayHead);
     for (const item of node.children || []) {
       const itemBox = document.createElement("div");
       itemBox.className = "array-item";
@@ -404,6 +403,7 @@ function renderField(node) {
   field.className = "form-field" + (node.isEnabled ? "" : " disabled");
   const row = document.createElement("div");
   row.className = "form-field-row";
+  row.appendChild(node.required ? renderLockBadge() : renderEnableControl(node));
   const label = document.createElement("div");
   label.className = "form-field-label";
   const name = document.createElement("div");
@@ -489,6 +489,32 @@ function renderField(node) {
   row.appendChild(control);
   field.appendChild(row);
   return field;
+}
+
+/// 字段启用勾选框：所有非必填字段（含标量）默认可取消；必填字段显示锁定标记。
+function renderEnableControl(node) {
+  const box = document.createElement("span");
+  box.className = "tree-checkbox" + (node.isEnabled ? " checked" : "");
+  if (!node.isSelectable) {
+    box.style.cursor = "not-allowed";
+    box.title = "父级未启用时锁定";
+  } else {
+    box.title = "取消勾选后该项不写入输出";
+  }
+  box.onclick = (e) => {
+    e.stopPropagation();
+    if (!node.canToggleEnabled) return;
+    send("form:toggle", { path: node.path, enabled: !node.isEnabled }, applyFormUpdate);
+  };
+  return box;
+}
+
+function renderLockBadge() {
+  const lock = document.createElement("span");
+  lock.className = "tree-checkbox locked";
+  lock.textContent = "🔒";
+  lock.title = "必填字段不可取消";
+  return lock;
 }
 
 // ---------- 模块树 ----------
@@ -877,6 +903,8 @@ function runSpike() {
     if (!typeOk) failed = true;
     await step("form:toggle", "form:toggle", { path: "http.upstreams", enabled: false });
     await step("form:toggle", "form:toggle", { path: "http.upstreams", enabled: true });
+    await step("form:toggle-scalar", "form:toggle", { path: "user", enabled: false });
+    await step("form:toggle-scalar", "form:toggle", { path: "user", enabled: true });
     await step("form:addItem", "form:addItem", { path: "http.upstreams" });
     await step("form:setValue", "form:setValue", { path: "http.upstreams[0].upstream_name", value: "backend" });
     await step("form:render", "form:render");
