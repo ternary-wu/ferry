@@ -1,0 +1,381 @@
+using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using Ferry.Core.Ports;
+using Ferry.Core.Services;
+
+namespace Ferry.Infrastructure;
+
+/// <summary>
+/// 工作空间本地 JSON 存储（v2 契约实现）：工作空间 → 配置 → 版本三层，
+/// 单文件存储，接口不变的前提下后续可换 SQLite/服务端。
+/// 只有显式 Delete 才删除数据；写操作线程安全。
+/// </summary>
+public sealed class LocalWorkspaceStore : IWorkspaceStore
+{
+    private static readonly JsonSerializerOptions WriteOptions = new() { WriteIndented = true };
+    private readonly object _sync = new();
+
+    public string FilePath { get; }
+
+    public LocalWorkspaceStore(string? filePath = null)
+    {
+        FilePath = filePath ?? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "Ferry",
+            "v2",
+            "workspace.json");
+    }
+
+    public IReadOnlyList<WorkspaceInfo> ListWorkspaces()
+    {
+        lock (_sync)
+        {
+            var array = LoadRoot()["workspaces"] as JsonArray ?? new JsonArray();
+            return array.Select(n => ParseWorkspace(n!)).ToList();
+        }
+    }
+
+    public WorkspaceInfo? GetWorkspace(string workspaceId)
+    {
+        lock (_sync)
+        {
+            var array = LoadRoot()["workspaces"] as JsonArray ?? new JsonArray();
+            return array
+                .Select(n => ParseWorkspace(n!))
+                .FirstOrDefault(w => w.Id == workspaceId);
+        }
+    }
+
+    public void SaveWorkspace(WorkspaceInfo workspace)
+    {
+        lock (_sync)
+        {
+            var root = LoadRoot();
+            var array = root["workspaces"] as JsonArray ?? new JsonArray();
+            var existing = array.FirstOrDefault(n => n?["id"]?.GetValue<string>() == workspace.Id);
+            if (existing is not null)
+            {
+                array.Remove(existing);
+            }
+            array.Add(ToWorkspaceNode(workspace));
+            root["workspaces"] = array;
+            Save(root);
+        }
+    }
+
+    public void DeleteWorkspace(string workspaceId)
+    {
+        lock (_sync)
+        {
+            var root = LoadRoot();
+            var array = root["workspaces"] as JsonArray ?? new JsonArray();
+            var existing = array.FirstOrDefault(n => n?["id"]?.GetValue<string>() == workspaceId);
+            if (existing is not null)
+            {
+                array.Remove(existing);
+            }
+            root["workspaces"] = array;
+
+            // 级联删除该工作空间下的配置及其版本。
+            var configs = root["configs"] as JsonObject;
+            if (configs is not null && configs[workspaceId] is JsonArray configArray)
+            {
+                var versions = root["versions"] as JsonObject;
+                foreach (var configNode in configArray)
+                {
+                    var configId = configNode?["id"]?.GetValue<string>();
+                    if (configId is not null && versions is not null)
+                    {
+                        versions.Remove(configId);
+                    }
+                }
+                configs.Remove(workspaceId);
+            }
+            Save(root);
+        }
+    }
+
+    public IReadOnlyList<ConfigInfo> ListConfigs(string workspaceId)
+    {
+        lock (_sync)
+        {
+            var root = LoadRoot();
+            var configs = root["configs"] as JsonObject;
+            var array = configs?[workspaceId] as JsonArray ?? new JsonArray();
+            return array.Select(n => ParseConfigInfo(n!)).ToList();
+        }
+    }
+
+    public ConfigData? LoadConfig(string workspaceId, string configId)
+    {
+        lock (_sync)
+        {
+            return FindConfigNode(LoadRoot(), workspaceId, configId) is { } node
+                ? ParseConfigData(node)
+                : null;
+        }
+    }
+
+    public void SaveConfig(ConfigData config)
+    {
+        lock (_sync)
+        {
+            var root = LoadRoot();
+            var configs = root["configs"] as JsonObject ?? new JsonObject();
+            var array = configs[config.WorkspaceId] as JsonArray ?? new JsonArray();
+            var existing = array.FirstOrDefault(n => n?["id"]?.GetValue<string>() == config.Id);
+            if (existing is not null)
+            {
+                array.Remove(existing);
+            }
+            array.Add(ToConfigNode(config));
+            configs[config.WorkspaceId] = array;
+            root["configs"] = configs;
+            Save(root);
+        }
+    }
+
+    public void DeleteConfig(string workspaceId, string configId)
+    {
+        lock (_sync)
+        {
+            var root = LoadRoot();
+            var configs = root["configs"] as JsonObject;
+            var array = configs?[workspaceId] as JsonArray;
+            var existing = array?.FirstOrDefault(n => n?["id"]?.GetValue<string>() == configId);
+            if (existing is not null)
+            {
+                array!.Remove(existing);
+            }
+            (root["versions"] as JsonObject)?.Remove(configId);
+            Save(root);
+        }
+    }
+
+    public IReadOnlyList<VersionSnapshot> ListVersions(string workspaceId, string configId)
+    {
+        lock (_sync)
+        {
+            var root = LoadRoot();
+            var versions = root["versions"] as JsonObject;
+            var array = versions?[configId] as JsonArray ?? new JsonArray();
+            return array.Select(n => ParseVersion(n!)).ToList();
+        }
+    }
+
+    public VersionSnapshot? GetVersion(string workspaceId, string configId, string versionId)
+    {
+        lock (_sync)
+        {
+            var versions = LoadRoot()["versions"] as JsonObject;
+            var array = versions?[configId] as JsonArray ?? new JsonArray();
+            return array
+                .Select(n => ParseVersion(n!))
+                .FirstOrDefault(v => v.Id == versionId);
+        }
+    }
+
+    public void SaveVersion(VersionSnapshot version)
+    {
+        lock (_sync)
+        {
+            var root = LoadRoot();
+            var versions = root["versions"] as JsonObject ?? new JsonObject();
+            var array = versions[version.ConfigId] as JsonArray ?? new JsonArray();
+            var existing = array.FirstOrDefault(n => n?["id"]?.GetValue<string>() == version.Id);
+            if (existing is not null)
+            {
+                array.Remove(existing);
+            }
+            array.Add(ToVersionNode(version));
+            versions[version.ConfigId] = array;
+            root["versions"] = versions;
+
+            // 留档即成为当前版本
+            if (FindConfigNode(root, version.ConfigId, out _) is { } configNode)
+            {
+                configNode["currentVersionId"] = version.Id;
+                configNode["updatedAt"] = DateTimeOffset.Now.ToString("O", CultureInfo.InvariantCulture);
+            }
+            Save(root);
+        }
+    }
+
+    public void DeleteVersion(string workspaceId, string configId, string versionId)
+    {
+        lock (_sync)
+        {
+            var root = LoadRoot();
+            var versions = root["versions"] as JsonObject;
+            var array = versions?[configId] as JsonArray;
+            var existing = array?.FirstOrDefault(n => n?["id"]?.GetValue<string>() == versionId);
+            if (existing is not null)
+            {
+                array!.Remove(existing);
+            }
+            Save(root);
+        }
+    }
+
+    // ---------- 内部：JSON 模型 ----------
+
+    private JsonObject LoadRoot()
+    {
+        if (!File.Exists(FilePath))
+        {
+            return new JsonObject();
+        }
+        try
+        {
+            return JsonNode.Parse(File.ReadAllText(FilePath)) as JsonObject ?? new JsonObject();
+        }
+        catch
+        {
+            return new JsonObject();
+        }
+    }
+
+    private void Save(JsonObject root)
+    {
+        var dir = Path.GetDirectoryName(FilePath);
+        if (!string.IsNullOrEmpty(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
+        File.WriteAllText(FilePath, root.ToJsonString(WriteOptions));
+    }
+
+    private static JsonObject ToWorkspaceNode(WorkspaceInfo workspace) => new()
+    {
+        ["id"] = workspace.Id,
+        ["name"] = workspace.Name,
+        ["createdAt"] = workspace.CreatedAt.ToString("O", CultureInfo.InvariantCulture),
+        ["updatedAt"] = workspace.UpdatedAt.ToString("O", CultureInfo.InvariantCulture)
+    };
+
+    private static WorkspaceInfo ParseWorkspace(JsonNode node)
+    {
+        var o = node.AsObject();
+        return new WorkspaceInfo(
+            o["id"]!.GetValue<string>(),
+            o["name"]!.GetValue<string>(),
+            ParseDate(o["createdAt"]),
+            ParseDate(o["updatedAt"]));
+    }
+
+    private static JsonObject ToConfigNode(ConfigData config) => new()
+    {
+        ["id"] = config.Id,
+        ["workspaceId"] = config.WorkspaceId,
+        ["name"] = config.Name,
+        ["pluginKey"] = config.PluginKey,
+        ["pluginVersion"] = config.PluginVersion,
+        ["updatedAt"] = DateTimeOffset.Now.ToString("O", CultureInfo.InvariantCulture),
+        ["currentVersionId"] = config.VersionId,
+        ["sourceText"] = config.SourceText,
+        ["values"] = JsonSerializer.SerializeToNode(config.Values),
+        ["enabled"] = JsonSerializer.SerializeToNode(config.Enabled)
+    };
+
+    private static ConfigInfo ParseConfigInfo(JsonNode node)
+    {
+        var o = node.AsObject();
+        return new ConfigInfo(
+            o["id"]!.GetValue<string>(),
+            o["workspaceId"]!.GetValue<string>(),
+            o["name"]!.GetValue<string>(),
+            o["pluginKey"]!.GetValue<string>(),
+            o["pluginVersion"]!.GetValue<string>(),
+            ParseDate(o["updatedAt"]),
+            o["currentVersionId"]?.GetValue<string>());
+    }
+
+    private static ConfigData ParseConfigData(JsonNode node)
+    {
+        var o = node.AsObject();
+        return new ConfigData
+        {
+            Id = o["id"]!.GetValue<string>(),
+            WorkspaceId = o["workspaceId"]!.GetValue<string>(),
+            Name = o["name"]!.GetValue<string>(),
+            PluginKey = o["pluginKey"]!.GetValue<string>(),
+            PluginVersion = o["pluginVersion"]!.GetValue<string>(),
+            SourceText = o["sourceText"]?.GetValue<string>() ?? string.Empty,
+            Values = o["values"] is JsonObject values
+                ? ConfigImporter.FromJsonObject(values)
+                : new Dictionary<string, object?>(),
+            Enabled = ReadBoolMap(o["enabled"]),
+            VersionId = o["currentVersionId"]?.GetValue<string>()
+        };
+    }
+
+    private static JsonObject ToVersionNode(VersionSnapshot version) => new()
+    {
+        ["id"] = version.Id,
+        ["configId"] = version.ConfigId,
+        ["sourceText"] = version.SourceText,
+        ["timestamp"] = version.Timestamp.ToString("O", CultureInfo.InvariantCulture),
+        ["note"] = version.Note
+    };
+
+    private static VersionSnapshot ParseVersion(JsonNode node)
+    {
+        var o = node.AsObject();
+        return new VersionSnapshot(
+            o["id"]!.GetValue<string>(),
+            o["configId"]!.GetValue<string>(),
+            o["sourceText"]?.GetValue<string>() ?? string.Empty,
+            ParseDate(o["timestamp"]),
+            o["note"]?.GetValue<string>());
+    }
+
+    private static DateTimeOffset ParseDate(JsonNode? node)
+        => DateTimeOffset.Parse(
+            node?.GetValue<string>() ?? DateTimeOffset.MinValue.ToString("O"),
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.RoundtripKind);
+
+    private static Dictionary<string, bool> ReadBoolMap(JsonNode? node)
+    {
+        var map = new Dictionary<string, bool>();
+        if (node is JsonObject obj)
+        {
+            foreach (var kv in obj)
+            {
+                if (kv.Value is JsonValue v && v.TryGetValue<bool>(out var value))
+                {
+                    map[kv.Key] = value;
+                }
+            }
+        }
+        return map;
+    }
+
+    private static JsonNode? FindConfigNode(JsonObject root, string workspaceId, string configId)
+    {
+        var configs = root["configs"] as JsonObject;
+        var array = configs?[workspaceId] as JsonArray;
+        return array?.FirstOrDefault(n => n?["id"]?.GetValue<string>() == configId);
+    }
+
+    private static JsonNode? FindConfigNode(JsonObject root, string configId, out string workspaceId)
+    {
+        var configs = root["configs"] as JsonObject;
+        if (configs is not null)
+        {
+            foreach (var kv in configs)
+            {
+                var array = kv.Value as JsonArray;
+                var match = array?.FirstOrDefault(n => n?["id"]?.GetValue<string>() == configId);
+                if (match is not null)
+                {
+                    workspaceId = kv.Key;
+                    return match;
+                }
+            }
+        }
+        workspaceId = string.Empty;
+        return null;
+    }
+}
