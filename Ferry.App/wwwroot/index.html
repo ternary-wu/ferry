@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -16,7 +16,7 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 .app{display:flex;height:100vh}
 
 /* ===== Sidebar ===== */
-.sidebar{width:300px;min-width:300px;background:#171717;border-right:1px solid #333;padding:16px;display:flex;flex-direction:column;overflow-y:auto}
+.sidebar{width:270px;min-width:270px;background:#171717;border-right:1px solid #333;padding:16px;display:flex;flex-direction:column;overflow-y:auto}
 .logo{font-size:20px;font-weight:600;margin-bottom:16px;letter-spacing:.3px}
 .project-selector{position:relative}
 .project-btn{width:100%;display:flex;align-items:center;gap:8px;background:#303030;padding:12px 14px;border-radius:12px;cursor:pointer;border:1px solid transparent;font-size:14px}
@@ -64,6 +64,7 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 
 /* ===== Main ===== */
 .main{flex:1;display:flex;flex-direction:column;min-width:0}
+.content{flex:1;display:flex;min-height:0;position:relative}
 .top{height:56px;border-bottom:1px solid #333;display:flex;align-items:center;gap:10px;padding:0 20px;flex-shrink:0}
 .crumb{font-size:13px;color:#bbb;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .crumb b{color:#eee;font-weight:600}
@@ -71,7 +72,15 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 .topBtn{background:#303030;padding:8px 14px;border-radius:10px;cursor:pointer;color:#ddd;transition:background .12s;white-space:nowrap}
 .topBtn:hover{background:#3a3a3a;color:#fff}
 .topBtn.active{background:#2f6feb;color:#fff}
-.content{flex:1;display:flex;min-height:0}
+
+/* 停靠面板（Dock Panel） */
+.split-resizer{width:4px;cursor:col-resize;background:transparent;flex-shrink:0}
+.split-resizer:hover{background:#2f6feb66}
+.dock-panel{flex:0 0 50%;max-width:60%;display:flex;flex-direction:column;background:#181818;border-left:1px solid #444}
+.pane-source{flex:1;display:flex;flex-direction:column;min-height:0;background:#181818}
+#mainPanel.full .editor{display:none !important}
+#mainPanel.full .split-resizer{display:none}
+#mainPanel.full .dock-panel{flex:1;max-width:none;min-width:0}
 
 /* ===== 欢迎页（一级界面） ===== */
 .welcome{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:40px}
@@ -84,12 +93,12 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 .recent-label{color:#888;font-size:12px}
 
 /* ===== 编辑器 ===== */
-.editor{flex:1;padding:28px;overflow-y:auto;display:none}
-.editor.show{display:block}
+.editor{flex:1;padding:28px;overflow-y:auto}
 .editor-head{max-width:760px;margin:0 auto}
 .editor-head h2{font-size:21px;margin:0 0 4px}
 .editor-head p{color:#999;margin:0 0 14px;font-size:13px}
-.editor-tools{display:flex;gap:8px;margin-bottom:4px}
+.editor-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.editor-tools .spacer{flex:1}
 .card{background:#2b2b2b;border:1px solid #444;border-radius:14px;margin-top:14px;width:100%;overflow:hidden}
 .card-head{display:flex;align-items:center;gap:10px;padding:13px 16px;cursor:pointer;user-select:none;transition:background .12s}
 .card-head:hover{background:#2f2f2f}
@@ -133,27 +142,15 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 .quick-row .arrow{margin-left:auto;color:#888}
 
 /* ===== 源码面板 ===== */
-.source{width:0;overflow:hidden;background:#181818;border-left:1px solid #444;transition:width .2s;display:flex;flex-direction:column;flex-shrink:0}
-.source.open{width:420px}
-.source.full{position:absolute;right:0;top:56px;bottom:0;width:100%;z-index:5;border-left:none}
-.source-head{height:48px;border-bottom:1px solid #333;display:flex;justify-content:space-between;align-items:center;padding:0 14px;flex-shrink:0}
-.source-head .name{font-size:13px;color:#ccc}
-.source-head .acts{display:flex;gap:10px;color:#888;font-size:14px}
-.source-head .acts span{cursor:pointer}
-.source-head .acts span:hover{color:#fff}
-.source-tabs{display:flex;border-bottom:1px solid #333;flex-shrink:0}
-.source-tab{padding:8px 14px;font-size:12px;color:#999;cursor:pointer;border-bottom:2px solid transparent}
-.source-tab.active{color:#fff;border-bottom-color:#2f6feb}
 .code{padding:16px;font-family:Consolas,monospace;font-size:12px;white-space:pre;overflow:auto;flex:1}
-.editor-ta{flex:1;resize:none;border:none;outline:none;background:#181818;color:#eee;padding:16px;font-family:Consolas,monospace;font-size:12px;line-height:1.5;white-space:pre}
-.source-tools{display:flex;gap:8px;padding:10px;border-top:1px solid #333;flex-wrap:wrap;align-items:center;flex-shrink:0}
-.source-tools input[type=text]{flex:1;min-width:140px;background:#171717;border:1px solid #555;padding:7px 10px;border-radius:8px;color:#eee;outline:none}
-.source-tools .report{width:100%;font-size:11px;color:#999}
 
 /* ===== 弹窗 ===== */
 .modal{display:none;position:absolute;inset:0;background:#0008;z-index:10}
 .modal.open{display:block}
 .window{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:560px;max-width:92vw;max-height:84vh;overflow-y:auto;background:#252525;border-radius:16px;padding:26px}
+.modal-close{position:absolute;top:12px;right:14px;width:28px;height:28px;border-radius:50%;color:#999;display:flex;align-items:center;justify-content:center}
+.modal-close:hover{background:#3a3a3a;color:#fff}
+.modal-close svg{width:13px;height:13px}
 .window h2{font-size:18px;margin:0 0 6px}
 .window .sub{color:#999;font-size:13px;margin:0 0 16px}
 .step{display:none}
@@ -198,7 +195,7 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 </style>
 </head>
 <body>
-<div class="app">
+<div class="app" id="app">
 
   <aside class="sidebar">
     <div class="logo">Ferry</div>
@@ -222,14 +219,14 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
     <div class="setting" id="btnSettings">⚙ 设置</div>
   </aside>
 
-  <div class="main">
-    <div class="top">
+  <div class="main" id="mainPanel">
+    <div class="top" id="topBar" style="display:none">
       <span class="crumb" id="crumbText"></span>
       <span class="spacer"></span>
+      <button class="topBtn" id="btnSourceFull" style="display:none" title="停靠面板占满主工作面板 / 还原">⛶ 全占</button>
       <button class="topBtn" id="btnSource">源码</button>
     </div>
-
-    <div class="content">
+    <div class="content" id="content">
       <div class="welcome" id="welcome">
         <div class="icon">F</div>
         <h1>Ferry</h1>
@@ -238,8 +235,7 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
         <div class="recent-label">最近使用</div>
         <div class="recent" id="recentChips"></div>
       </div>
-
-      <div class="editor" id="editor">
+      <div class="editor" id="editor" style="display:none">
         <div class="editor-head">
           <h2 id="formTitle">Ferry</h2>
           <p id="formSubtitle"></p>
@@ -250,33 +246,12 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
         </div>
         <div id="formRoot"></div>
       </div>
-
-      <div class="source" id="sourcePanel">
-        <div class="source-head">
-          <span class="name" id="sourceName">config</span>
-          <span class="acts">
-            <span id="btnSourceFull" title="全屏/还原">⛶</span>
-            <span id="btnSourceClose" title="关闭">×</span>
-          </span>
-        </div>
-        <div class="source-tabs">
-          <span class="source-tab active" data-tab="preview">预览</span>
-          <span class="source-tab" data-tab="edit">编辑</span>
-        </div>
+      <div class="split-resizer" id="splitResizer" style="display:none"></div>
+      <div class="dock-panel" id="dockPanel" style="display:none">
         <pre class="code" id="previewCode"></pre>
-        <textarea class="editor-ta" id="sourceEditor" style="display:none" spellcheck="false"></textarea>
-        <div class="source-tools">
-          <button class="btn small primary" id="btnApplyEdit">应用修改</button>
-          <button class="btn small" id="btnImportFile">导入文件</button>
-          <input id="importFile" type="file" style="display:none" />
-          <input type="text" id="exportPath" placeholder="导出文件路径" />
-          <button class="btn small" id="btnExport">导出</button>
-          <span class="report" id="unrecognizedReport"></span>
-        </div>
       </div>
     </div>
-
-    <footer class="statusbar">
+<footer class="statusbar">
       <span id="statusText">就绪</span>
       <span id="moduleStatus"></span>
       <span class="spacer"></span>
@@ -290,6 +265,7 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 <!-- 新建配置向导 -->
 <div class="modal" id="wizardModal">
   <div class="window">
+    <button class="modal-close" data-close="wizardModal"><svg viewBox="0 0 14 14"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
     <div class="step active" id="wz1">
       <h2>选择插件</h2>
       <p class="sub">选择要创建配置的能力</p>
@@ -322,6 +298,7 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 <!-- 移动工作空间 -->
 <div class="modal" id="moveModal">
   <div class="window">
+    <button class="modal-close" data-close="moveModal"><svg viewBox="0 0 14 14"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
     <h2>移动工作空间</h2>
     <p class="sub" id="moveTargetLabel"></p>
     <select id="moveWorkspace" style="width:100%;background:#171717;border:1px solid #555;padding:12px;border-radius:10px;color:#eee"></select>
@@ -335,6 +312,7 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 <!-- 版本 -->
 <div class="modal" id="versionsModal">
   <div class="window">
+    <button class="modal-close" data-close="versionsModal"><svg viewBox="0 0 14 14"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
     <h2>版本历史</h2>
     <p class="sub">留档当前配置源码，可随时回滚</p>
     <div style="display:flex;gap:8px">
@@ -348,6 +326,7 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 <!-- 设置 -->
 <div class="modal" id="settingsModal">
   <div class="window">
+    <button class="modal-close" data-close="settingsModal"><svg viewBox="0 0 14 14"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
     <h2>设置</h2>
     <div class="settings-tabs">
       <button class="settings-tab active" data-pane="plugins">插件管理</button>
@@ -358,6 +337,10 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
     <div class="settings-pane active" id="pane-plugins"><div id="settingsPlugins"></div></div>
     <div class="settings-pane" id="pane-templates"><div id="settingsTemplates"></div></div>
     <div class="settings-pane" id="pane-system">
+      <div class="field-label">交互</div>
+      <label style="display:flex;align-items:center;gap:8px;color:#ccc;margin-bottom:10px">
+        <input type="checkbox" id="closeOutside" /> 点击窗口外区域关闭弹窗
+      </label>
       <div class="field-label">日志文件</div>
       <div id="settingsLogPath" style="color:#999;font-size:12px;word-break:break-all"></div>
       <div class="footer" style="justify-content:flex-start">
@@ -370,6 +353,31 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
     <div class="settings-pane" id="pane-about">
       <div class="field-label">Ferry v2</div>
       <div style="color:#999;font-size:12px">插件化运维配置生成工具 · 项目/工作空间/配置三层管理</div>
+    </div>
+  </div>
+</div>
+
+<!-- 通用输入 / 确认 -->
+<div class="modal" id="promptModal">
+  <div class="window">
+    <button class="modal-close" data-close="promptModal"><svg viewBox="0 0 14 14"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+    <h2 id="promptTitle">输入</h2>
+    <input type="text" id="promptInput" style="margin-top:12px" />
+    <div class="footer">
+      <button class="btn" id="promptCancel">取消</button>
+      <button class="btn primary" id="promptOk">确定</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="confirmModal">
+  <div class="window">
+    <button class="modal-close" data-close="confirmModal"><svg viewBox="0 0 14 14"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+    <h2 id="confirmTitle">确认</h2>
+    <p class="sub" id="confirmMessage"></p>
+    <div class="footer">
+      <button class="btn" id="confirmCancel">取消</button>
+      <button class="btn primary" id="confirmOk">确定</button>
     </div>
   </div>
 </div>

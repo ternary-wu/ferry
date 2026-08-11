@@ -11,7 +11,6 @@ let snapshot = null;
 let sourceText = "";
 let errors = [];
 let unrecognized = [];
-let previewTab = "preview";
 let collapsedPaths = new Set();
 let ctxConfig = null;
 let requestSeq = 0;
@@ -101,6 +100,49 @@ function textSpan(text) {
   el.textContent = text;
   return el;
 }
+
+// ---------- 通用输入 / 确认弹窗（统一二级界面风格） ----------
+let promptCallback = null;
+let confirmCallback = null;
+
+function showPrompt(title, defaultValue, callback) {
+  promptCallback = callback;
+  document.getElementById("promptTitle").textContent = title;
+  document.getElementById("promptInput").value = defaultValue || "";
+  openModal("promptModal");
+  setTimeout(() => document.getElementById("promptInput").focus(), 60);
+}
+
+function showConfirm(title, message, callback) {
+  confirmCallback = callback;
+  document.getElementById("confirmTitle").textContent = title;
+  document.getElementById("confirmMessage").textContent = message;
+  openModal("confirmModal");
+}
+
+document.getElementById("promptOk").onclick = () => {
+  const cb = promptCallback;
+  promptCallback = null;
+  closeModal("promptModal");
+  if (cb) cb(document.getElementById("promptInput").value.trim());
+};
+document.getElementById("promptCancel").onclick = () => {
+  promptCallback = null;
+  closeModal("promptModal");
+};
+document.getElementById("promptInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") document.getElementById("promptOk").click();
+});
+document.getElementById("confirmOk").onclick = () => {
+  const cb = confirmCallback;
+  confirmCallback = null;
+  closeModal("confirmModal");
+  if (cb) cb();
+};
+document.getElementById("confirmCancel").onclick = () => {
+  confirmCallback = null;
+  closeModal("confirmModal");
+};
 function escapeHtml(text) {
   return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -303,28 +345,31 @@ document.addEventListener("click", (e) => {
 });
 
 function newWorkspace(projectId) {
-  const name = window.prompt("工作空间名称：");
-  if (!name) return;
-  send("workspace:create", { projectId, name }, (d) => {
-    if (okOr(d)) { loadNav(); showToast("已创建工作空间"); }
+  showPrompt("工作空间名称", "", (name) => {
+    if (!name) return;
+    send("workspace:create", { projectId, name }, (d) => {
+      if (okOr(d)) { loadNav(); showToast("已创建工作空间"); }
+    });
   });
 }
 
 function deleteConfig(cfg, workspaceId) {
-  if (!window.confirm(`删除配置「${cfg.name}」？`)) return;
-  send("config:delete", { workspaceId, configId: cfg.id }, (data) => {
-    okOr(data);
-    if (currentConfig && cfg.id === currentConfig.id) clearOpenConfig();
-    loadNav();
-    showToast("已删除配置");
+  showConfirm("删除配置", `确定删除「${cfg.name}」？该操作不可撤销。`, () => {
+    send("config:delete", { workspaceId, configId: cfg.id }, (data) => {
+      okOr(data);
+      if (currentConfig && cfg.id === currentConfig.id) clearOpenConfig();
+      loadNav();
+      showToast("已删除配置");
+    });
   });
 }
 
 function exportConfigArchive(cfg, workspaceId) {
-  const path = window.prompt("存档包导出路径：", cfg.name + ".zip");
-  if (!path) return;
-  send("archive:exportConfig", { workspaceId, configId: cfg.id, path }, (d) => {
-    if (okOr(d)) showToast(`已导出：${d.path}`);
+  showPrompt("存档包导出路径", cfg.name + ".zip", (path) => {
+    if (!path) return;
+    send("archive:exportConfig", { workspaceId, configId: cfg.id, path }, (d) => {
+      if (okOr(d)) showToast(`已导出：${d.path}`);
+    });
   });
 }
 
@@ -332,7 +377,9 @@ function exportConfigArchive(cfg, workspaceId) {
 function clearOpenConfig() {
   currentConfig = null; snapshot = null; sourceText = "";
   document.getElementById("welcome").style.display = "";
-  document.getElementById("editor").classList.remove("show");
+  document.getElementById("editor").style.display = "none";
+  document.getElementById("topBar").style.display = "none";
+  setSourceOpen(false);
   document.getElementById("crumbText").innerHTML = "";
   document.getElementById("moduleStatus").textContent = "";
   document.getElementById("formRoot").textContent = "";
@@ -348,13 +395,15 @@ function applyOpenData(data) {
   collapsedPaths = new Set();
   const project = projects.find(p => p.id === currentProjectId);
   const ws = nav.workspaces.find(w => w.id === currentWorkspaceId);
+  document.getElementById("topBar").style.display = "flex";
   const crumb = `${escapeHtml(project ? project.name : "项目")} / ${escapeHtml(ws ? ws.name : "未归类")} / <b>${escapeHtml(data.config.name)}</b>`;
   document.getElementById("crumbText").innerHTML = crumb;
   document.getElementById("formTitle").textContent = data.config.name;
   document.getElementById("formSubtitle").textContent =
     `${data.config.pluginName} v${data.config.pluginVersion}${data.versionChanged ? "（字段可能有增减）" : ""}`;
   document.getElementById("welcome").style.display = "none";
-  document.getElementById("editor").classList.add("show");
+  document.getElementById("editor").style.display = "block";
+  setSourceOpen(false);
   seedCollapsed();
   renderForm(); renderPreview();
   renderNavActive();
@@ -631,24 +680,27 @@ function updateRecents(pluginKey, templateId) {
   renderWelcome();
 }
 
-// ---------- 源码面板 ----------
+// ---------- 源码页签（VS Code 式） ----------
+let sourceOpen = false;
+
 function renderPreview() {
-  if (previewTab === "preview") {
-    document.getElementById("previewCode").textContent = sourceText || "（点击右上角「源码」打开）";
-  }
+  document.getElementById("previewCode").textContent = sourceText || "（点击右上角「源码」打开停靠面板）";
 }
-function switchSourceTab(tab) {
-  previewTab = tab;
-  document.querySelectorAll(".source-tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
-  document.getElementById("previewCode").style.display = tab === "preview" ? "" : "none";
-  document.getElementById("sourceEditor").style.display = tab === "edit" ? "" : "none";
-  if (tab === "edit") document.getElementById("sourceEditor").value = sourceText;
-  else renderPreview();
-}
+
+// 停靠面板：点击「源码」后停靠在主工作面板右侧，与表单并排
 function setSourceOpen(open) {
-  const panel = document.getElementById("sourcePanel");
-  panel.classList.toggle("open", open);
+  sourceOpen = open;
+  document.getElementById("dockPanel").style.display = open ? "flex" : "none";
+  document.getElementById("splitResizer").style.display = open ? "" : "none";
   document.getElementById("btnSource").classList.toggle("active", open);
+  document.getElementById("btnSourceFull").style.display = open ? "" : "none";
+  if (!open) {
+    document.getElementById("mainPanel").classList.remove("full");
+    document.getElementById("btnSourceFull").textContent = "⛶ 全占";
+    document.getElementById("btnSourceFull").title = "停靠面板占满主工作面板 / 还原";
+  } else {
+    renderPreview();
+  }
 }
 
 // ---------- 向导 ----------
@@ -819,13 +871,14 @@ function refreshVersionsList() {
       const acts = el("span", "acts");
       const restore = el("span", "", "回滚");
       restore.onclick = () => {
-        if (!window.confirm("回滚到该版本？当前表单将被该版本源码重建。")) return;
-        send("version:restore", { workspaceId: ctxConfig.workspaceId, configId: ctxConfig.cfg.id, versionId: v.id }, (data) => {
-          if (!okOr(data)) return;
-          currentWorkspaceId = ctxConfig.workspaceId;
-          applyOpenData(data);
-          refreshVersionsList();
-          showToast("已回滚到该版本");
+        showConfirm("回滚版本", "回滚到该版本？当前表单将被该版本源码重建。", () => {
+          send("version:restore", { workspaceId: ctxConfig.workspaceId, configId: ctxConfig.cfg.id, versionId: v.id }, (data) => {
+            if (!okOr(data)) return;
+            currentWorkspaceId = ctxConfig.workspaceId;
+            applyOpenData(data);
+            refreshVersionsList();
+            showToast("已回滚到该版本");
+          });
         });
       };
       const del = el("span", "del", "删除");
@@ -879,10 +932,11 @@ function renderSettingsTemplates() {
 // ---------- 事件绑定 ----------
 document.getElementById("projectBtn").onclick = () => toggleProjectMenu();
 document.getElementById("btnNewProject").onclick = () => {
-  const name = window.prompt("项目名称：");
-  if (!name) return;
-  send("project:create", { name }, (d) => {
-    if (okOr(d)) { currentProjectId = d.project.id; saveLocal("ferry.projectId", currentProjectId); refreshProjects(currentProjectId); showToast("已创建项目"); }
+  showPrompt("项目名称", "", (name) => {
+    if (!name) return;
+    send("project:create", { name }, (d) => {
+      if (okOr(d)) { currentProjectId = d.project.id; saveLocal("ferry.projectId", currentProjectId); refreshProjects(currentProjectId); showToast("已创建项目"); }
+    });
   });
 };
 document.getElementById("btnNewConfig").onclick = () => openWizard();
@@ -893,51 +947,54 @@ document.getElementById("wzBack").onclick = () => goWizardStep(wizard.step - 1);
 document.getElementById("wzCreate").onclick = submitCreate;
 
 document.getElementById("btnSource").onclick = () => {
-  const panel = document.getElementById("sourcePanel");
-  setSourceOpen(!panel.classList.contains("open"));
-  if (panel.classList.contains("open")) {
-    document.getElementById("sourceName").textContent = currentConfig ? currentConfig.name : "未打开配置";
-    renderPreview();
+  setSourceOpen(!sourceOpen);
+};
+function toggleFull() {
+  const main = document.getElementById("mainPanel");
+  const full = main.classList.toggle("full");
+  const panel = document.getElementById("dockPanel");
+  if (full) {
+    // 让 CSS 的全占规则接管，清除拖拽留下的内联宽度
+    panel.style.flex = "";
+    panel.style.minWidth = "";
+    panel.style.maxWidth = "";
   }
-};
-document.getElementById("btnSourceClose").onclick = () => setSourceOpen(false);
-document.getElementById("btnSourceFull").onclick = () => {
-  const panel = document.getElementById("sourcePanel");
-  panel.classList.toggle("full");
-  document.getElementById("btnSourceFull").textContent = panel.classList.contains("full") ? "⤢" : "⛶";
-};
-document.querySelectorAll(".source-tab").forEach(tab => {
-  tab.onclick = () => switchSourceTab(tab.dataset.tab);
-});
-document.getElementById("btnApplyEdit").onclick = () => {
-  const text = document.getElementById("sourceEditor").value;
-  send("form:importText", { text }, (d) => {
-    if (!okOr(d)) return;
-    applyFormUpdate(d);
-    document.getElementById("unrecognizedReport").textContent =
-      d.report && d.report.unrecognizedLines > 0 ? `未识别内容 ${d.report.unrecognizedLines} 行（已保留）` : "";
-    showToast("已应用修改到表单");
-  });
-};
-document.getElementById("btnImportFile").onclick = () => document.getElementById("importFile").click();
-document.getElementById("importFile").onchange = (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    send("form:importText", { text: String(reader.result) }, (d) => {
-      if (!okOr(d)) return;
-      applyFormUpdate(d);
-      showToast(`已导入：${file.name}`);
-    });
+  document.getElementById("btnSourceFull").textContent = full ? "⤢ 还原" : "⛶ 全占";
+  document.getElementById("btnSourceFull").title = full ? "还原为分栏" : "停靠面板占满主工作面板";
+}
+document.getElementById("btnSourceFull").onclick = toggleFull;
+// 停靠面板宽度拖拽：占主工作面板 35%–60%；缩到 35% 后继续往右拖超过阈值才关闭（防手抖）
+document.getElementById("splitResizer").addEventListener("mousedown", (e) => {
+  e.preventDefault();
+  const startX = e.clientX;
+  const startWidth = document.getElementById("dockPanel").offsetWidth;
+  const mainWidth = document.getElementById("mainPanel").offsetWidth;
+  const minWidth = mainWidth * 0.35;
+  const maxWidth = mainWidth * 0.6;
+  const closeDistance = 28;
+  const onMove = (ev) => {
+    const delta = ev.clientX - startX;
+    const target = startWidth - delta;
+    if (target < minWidth - closeDistance) {
+      // 越过 35% 且继续往右拖足够距离：关闭停靠面板
+      setSourceOpen(false);
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      return;
+    }
+    const width = Math.max(minWidth, Math.min(maxWidth, target));
+    const panel = document.getElementById("dockPanel");
+    panel.style.flex = `0 0 ${width}px`;
+    panel.style.minWidth = `${width}px`;
+    panel.style.maxWidth = `${width}px`;
   };
-  reader.readAsText(file);
-};
-document.getElementById("btnExport").onclick = () => {
-  const path = document.getElementById("exportPath").value;
-  if (!path) { setStatus("请填写导出路径", true); return; }
-  send("config:exportTo", { path }, (d) => { if (okOr(d)) showToast(`已导出：${d.path}`); });
-};
+  const onUp = () => {
+    document.removeEventListener("mousemove", onMove);
+    document.removeEventListener("mouseup", onUp);
+  };
+  document.addEventListener("mousemove", onMove);
+  document.addEventListener("mouseup", onUp);
+});
 
 document.getElementById("btnSnapshot").onclick = () => {
   const note = document.getElementById("versionNote").value.trim() || undefined;
@@ -954,6 +1011,20 @@ document.querySelectorAll(".settings-tab").forEach(tab => {
   };
 });
 document.getElementById("btnOpenLogs").onclick = () => send("logs:open", null, (d) => { okOr(d); });
+
+// 弹窗关闭按钮 + 点击窗口外关闭（可配置）
+document.querySelectorAll(".modal-close").forEach(btn => {
+  btn.onclick = () => closeModal(btn.dataset.close);
+});
+document.addEventListener("click", (e) => {
+  if (e.target.classList && e.target.classList.contains("modal") && e.target.classList.contains("open")) {
+    if (loadLocal("ferry.closeOutside", true)) e.target.classList.remove("open");
+  }
+});
+const closeOutsideCb = document.getElementById("closeOutside");
+closeOutsideCb.checked = loadLocal("ferry.closeOutside", true);
+closeOutsideCb.onchange = () => saveLocal("ferry.closeOutside", closeOutsideCb.checked);
+
 document.getElementById("btnImportArchive").onclick = () => {
   const path = document.getElementById("archivePath").value;
   if (!path) { setStatus("请填写存档包路径", true); return; }
