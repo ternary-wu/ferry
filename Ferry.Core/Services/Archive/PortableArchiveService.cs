@@ -45,6 +45,10 @@ public sealed class PortableArchiveService
             ?? throw new InvalidOperationException($"工作空间不存在：{workspaceId}");
         var configs = _service.ListConfigs(workspaceId);
 
+        if (File.Exists(zipPath))
+        {
+            File.Delete(zipPath);
+        }
         using var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create);
         WriteManifest(zip, workspace, configs);
         foreach (var info in configs)
@@ -66,6 +70,10 @@ public sealed class PortableArchiveService
         var config = _service.LoadConfig(workspaceId, configId)
             ?? throw new InvalidOperationException($"配置不存在：{configId}");
 
+        if (File.Exists(zipPath))
+        {
+            File.Delete(zipPath);
+        }
         using var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create);
         WriteManifest(zip, workspace, _service.ListConfigs(workspaceId).Where(c => c.Id == configId).ToList());
         WriteConfig(zip, workspace, config);

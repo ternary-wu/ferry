@@ -77,6 +77,28 @@ function setStatus(text, isError) {
   el.className = isError ? "bad" : "ok";
 }
 
+// 结构性变更：全量应用快照并重渲染
+function applyFormUpdate(data) {
+  if (!data) return;
+  if (data.snapshot) { snapshot = data.snapshot; renderForm(); }
+  if (data.text !== undefined && data.text !== null) { sourceText = data.text; renderPreview(); }
+  if (data.errors) {
+    errors = data.errors;
+    setStatus(errors.length === 0 ? "校验通过" : `校验：${errors.length} 个错误`, errors.length > 0);
+  }
+  if (data.unrecognized) unrecognized = data.unrecognized;
+}
+
+// 值修改：只刷新预览与状态，不重建输入框（避免失焦）
+function applyLightUpdate(data) {
+  if (!data) return;
+  if (data.text !== undefined && data.text !== null) { sourceText = data.text; renderPreview(); }
+  if (data.errors) {
+    errors = data.errors;
+    setStatus(errors.length === 0 ? "校验通过" : `校验：${errors.length} 个错误`, errors.length > 0);
+  }
+}
+
 // ---------- 工作空间 / 配置 ----------
 function refreshWorkspaces() {
   send("workspaces:list", null, (data) => {
@@ -284,7 +306,7 @@ function renderNode(node, depth) {
     box.checked = node.isEnabled;
     box.disabled = !node.canToggleEnabled;
     box.title = node.canToggleEnabled ? "" : "父级未启用时锁定";
-    box.onchange = () => send("form:toggle", { path: node.path, enabled: box.checked });
+    box.onchange = () => send("form:toggle", { path: node.path, enabled: box.checked }, applyFormUpdate);
     wrap.appendChild(box);
   }
 
@@ -305,7 +327,7 @@ function renderNode(node, depth) {
       const input = document.createElement("input");
       input.type = "text";
       input.value = node.value ?? "";
-      input.onchange = () => send("form:setValue", { path: node.path, value: input.value });
+      input.onchange = () => send("form:setValue", { path: node.path, value: input.value }, applyLightUpdate);
       wrap.appendChild(input);
       break;
     }
@@ -316,7 +338,7 @@ function renderNode(node, depth) {
       input.min = node.min ?? "";
       input.max = node.max ?? "";
       input.step = node.integerOnly ? "1" : "any";
-      input.onchange = () => send("form:setValue", { path: node.path, value: input.value });
+      input.onchange = () => send("form:setValue", { path: node.path, value: input.value }, applyLightUpdate);
       wrap.appendChild(input);
       break;
     }
@@ -324,7 +346,7 @@ function renderNode(node, depth) {
       const box = document.createElement("input");
       box.type = "checkbox";
       box.checked = node.value === true;
-      box.onchange = () => send("form:setValue", { path: node.path, value: box.checked });
+      box.onchange = () => send("form:setValue", { path: node.path, value: box.checked }, applyLightUpdate);
       wrap.appendChild(box);
       break;
     }
@@ -337,7 +359,7 @@ function renderNode(node, depth) {
         el.textContent = opt.value + (opt.description ? `（${opt.description}）` : "");
         select.appendChild(el);
       }
-      const apply = (v) => send("form:setValue", { path: node.path, value: v });
+      const apply = (v) => send("form:setValue", { path: node.path, value: v }, applyLightUpdate);
       if (node.allowCustomValue) {
         const custom = document.createElement("input");
         custom.type = "text";
@@ -357,14 +379,14 @@ function renderNode(node, depth) {
     case "Array": {
       const add = document.createElement("button");
       add.textContent = "＋ 添加项";
-      add.onclick = () => send("form:addItem", { path: node.path });
+      add.onclick = () => send("form:addItem", { path: node.path }, applyFormUpdate);
       wrap.appendChild(add);
       for (const child of node.children || []) {
         const item = document.createElement("div");
         item.className = "item";
         const remove = document.createElement("button");
         remove.textContent = "✕";
-        remove.onclick = () => send("form:removeItem", { path: child.path });
+        remove.onclick = () => send("form:removeItem", { path: child.path }, applyFormUpdate);
         item.appendChild(remove);
         item.appendChild(renderNode(child, depth + 1));
         wrap.appendChild(item);
@@ -467,14 +489,7 @@ document.getElementById("btnApplyPreset").onclick = () => {
   const id = document.getElementById("presetSelect").value;
   if (!id) return;
   if (!window.confirm("应用模板将覆盖当前配置，是否继续？")) return;
-  send("form:applyPreset", { preset: id }, (d) => {
-    if (okOr(d)) {
-      snapshot = d.snapshot || [];
-      errors = d.errors || [];
-      renderForm(); renderPreview();
-      setStatus("已应用模板", false);
-    }
-  });
+  send("form:applyPreset", { preset: id }, (d) => { if (okOr(d)) applyFormUpdate(d); });
 };
 
 document.getElementById("btnReset").onclick = () => {
@@ -491,10 +506,7 @@ document.getElementById("btnReset").onclick = () => {
 
 document.getElementById("btnValidate").onclick = () =>
   send("form:validate", null, (d) => {
-    if (!okOr(d)) return;
-    errors = d.errors || [];
-    setStatus(errors.length === 0 ? "校验：✓ 全部通过" : `校验：${errors.length} 个错误`, errors.length > 0);
-    if (d.snapshot) { snapshot = d.snapshot; renderForm(); }
+    if (okOr(d)) applyFormUpdate(d);
   });
 
 document.getElementById("btnPreview").onclick = () =>
@@ -655,7 +667,10 @@ function runSpike() {
     const cfgData = await step("config:create", "config:create",
       { workspaceId: wsId, pluginKey: "Nginx", name: "selfcheck.conf" });
     const cfgId = cfgData.configId;
-    await step("config:open", "config:open", { workspaceId: wsId, configId: cfgId });
+    const openData = await step("config:open", "config:open", { workspaceId: wsId, configId: cfgId });
+    const typeOk = (openData.snapshot || []).every(n => typeof n.type === "string");
+    steps.push({ name: "type-check", ms: 0, ok: typeOk, error: typeOk ? "" : "字段类型不是字符串" });
+    if (!typeOk) failed = true;
     await step("form:toggle", "form:toggle", { path: "http.upstreams", enabled: false });
     await step("form:toggle", "form:toggle", { path: "http.upstreams", enabled: true });
     await step("form:addItem", "form:addItem", { path: "http.upstreams" });

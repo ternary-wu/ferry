@@ -29,7 +29,8 @@ public static class Program
     };
     private static readonly JsonSerializerOptions DtoOptions = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter() }
     };
     private static readonly string LogPath =
         Path.Combine(AppContext.BaseDirectory, "ferry-spike-log.txt");
@@ -58,7 +59,8 @@ public static class Program
 
         var window = new PhotinoWindow()
             .SetTitle("Ferry")
-            .SetSize(1440, 860)
+            .SetUseOsDefaultSize(false)
+            .SetSize(1280, 800)
             .RegisterWebMessageReceivedHandler((sender, message) =>
                 HandleMessage(sender, context, message, selfCheck));
         Log("window-created");
@@ -415,14 +417,18 @@ public static class Program
         {
             return Fail(result.Errors, result.ErrorCode);
         }
-        if (command is not ValidateCommand and not RenderCommand and not SnapshotCommand)
+        var isMutation = command is not ValidateCommand and not RenderCommand and not SnapshotCommand;
+        if (isMutation)
         {
             PersistCurrent(ctx);
         }
+        var text = command is RenderCommand
+            ? result.RenderedText
+            : isMutation ? ctx.CurrentSession.GetState().SourceText : null;
         return Ok(new JsonObject
         {
             ["snapshot"] = Node(ctx.CurrentSession.GetSnapshot()),
-            ["text"] = command is RenderCommand ? result.RenderedText : null,
+            ["text"] = text,
             ["errors"] = Node(ctx.CurrentSession.Validate()),
             ["newItemPath"] = result.NewItemPath,
             ["unrecognized"] = Node(ctx.CurrentSession.Unrecognized)
