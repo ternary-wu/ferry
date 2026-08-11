@@ -275,7 +275,8 @@ public sealed class LocalWorkspaceStore : IWorkspaceStore
         ["currentVersionId"] = config.VersionId,
         ["sourceText"] = config.SourceText,
         ["values"] = JsonSerializer.SerializeToNode(config.Values),
-        ["enabled"] = JsonSerializer.SerializeToNode(config.Enabled)
+        ["enabled"] = JsonSerializer.SerializeToNode(config.Enabled),
+        ["unrecognized"] = JsonSerializer.SerializeToNode(config.Unrecognized)
     };
 
     private static ConfigInfo ParseConfigInfo(JsonNode node)
@@ -306,6 +307,7 @@ public sealed class LocalWorkspaceStore : IWorkspaceStore
                 ? ConfigImporter.FromJsonObject(values)
                 : new Dictionary<string, object?>(),
             Enabled = ReadBoolMap(o["enabled"]),
+            Unrecognized = ReadStringList(o["unrecognized"]),
             VersionId = o["currentVersionId"]?.GetValue<string>()
         };
     }
@@ -350,6 +352,18 @@ public sealed class LocalWorkspaceStore : IWorkspaceStore
             }
         }
         return map;
+    }
+
+    private static List<string> ReadStringList(JsonNode? node)
+    {
+        if (node is JsonArray array)
+        {
+            return array
+                .Select(n => n?.GetValue<string>() ?? string.Empty)
+                .Where(s => !string.IsNullOrEmpty(s))
+                .ToList();
+        }
+        return new List<string>();
     }
 
     private static JsonNode? FindConfigNode(JsonObject root, string workspaceId, string configId)

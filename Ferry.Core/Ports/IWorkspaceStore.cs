@@ -28,6 +28,8 @@ public sealed class ConfigData
     public string SourceText { get; set; } = string.Empty;
     public Dictionary<string, object?> Values { get; set; } = new();
     public Dictionary<string, bool> Enabled { get; set; } = new();
+    /// <summary>导入/解析时未能识别的原始内容（随配置存档，导出可选追加）。</summary>
+    public List<string> Unrecognized { get; set; } = new();
     public string? VersionId { get; set; }
 }
 

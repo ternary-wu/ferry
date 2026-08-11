@@ -115,6 +115,9 @@ public sealed class WorkspaceService
     public VersionSnapshot? GetVersion(string workspaceId, string configId, string versionId)
         => _store.GetVersion(workspaceId, configId, versionId);
 
+    /// <summary>直接保存版本快照（存档导入等场景，保留原始 Id/时间）。</summary>
+    public void SaveVersionSnapshot(VersionSnapshot snapshot) => _store.SaveVersion(snapshot);
+
     public void DeleteVersion(string workspaceId, string configId, string versionId)
         => _store.DeleteVersion(workspaceId, configId, versionId);
 
