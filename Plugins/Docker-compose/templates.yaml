@@ -1,0 +1,39 @@
+templates:
+  - id: single
+    name: 单服务
+    description: 一个 nginx 服务
+    modules: [services]
+    values:
+      services:
+        items:
+          - name: web
+            image: nginx:latest
+            restart: unless-stopped
+            ports:
+              - host: 80
+                container: 80
+
+  - id: web_db
+    name: Web + 数据库
+    description: nginx web 服务 + postgres 数据库
+    modules: [services]
+    values:
+      services:
+        items:
+          - name: web
+            image: nginx:latest
+            restart: unless-stopped
+            ports:
+              - host: 80
+                container: 80
+            depends_on:
+              - service: db
+          - name: db
+            image: postgres:16-alpine
+            restart: always
+            environment:
+              - name: POSTGRES_PASSWORD
+                value: change-me
+            volumes:
+              - source: ./pgdata
+                target: /var/lib/postgresql/data

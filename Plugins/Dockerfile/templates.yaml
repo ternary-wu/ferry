@@ -1,0 +1,32 @@
+templates:
+  - id: node
+    name: Node.js 应用
+    description: node 镜像 + 安装依赖 + npm start
+    modules: []
+    values:
+      FROM: node:20-alpine
+      WORKDIR: /app
+      COPY:
+        - source: package*.json
+          dest: /app/
+        - source: .
+          dest: /app
+      RUN:
+        - command: npm install
+      CMD: '["npm", "start"]'
+
+  - id: python
+    name: Python 应用
+    description: python 镜像 + pip 安装依赖 + 运行脚本
+    modules: []
+    values:
+      FROM: python:3.12-slim
+      WORKDIR: /app
+      COPY:
+        - source: requirements.txt
+          dest: /app/
+        - source: .
+          dest: /app
+      RUN:
+        - command: pip install -r requirements.txt
+      CMD: '["python", "app.py"]'

@@ -1,0 +1,16 @@
+name: Redis
+version: 1.0.0
+target:
+  name: redis
+  version: ">=6.0, <8.0"
+  note: 覆盖监听/内存/持久化/安全/日志常用配置
+author: Ferry Community
+description: 生成 Redis 配置文件（redis.conf）
+renderer:
+  type: layout
+  layout:
+    line: "{{ .key }} {{ . }}"
+    blockOpen: "{{ .key }} {"
+    blockClose: "}"
+    indent: "    "
+  defaultFileName: redis.conf

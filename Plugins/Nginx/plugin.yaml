@@ -1,0 +1,17 @@
+name: Nginx
+version: 1.1.0
+target:
+  name: nginx
+  version: ">=1.25, <2.0"
+  note: 指令字段按 1.25+ 常用生产集整理，1.30.x 新增项（如 proxy_http_version 2）暂未纳入
+author: Ferry Community
+description: 生成完整的 Nginx 主配置文件（声明式布局）
+renderer:
+  type: layout
+  layout:
+    line: "{{ .key }} {{ . }};"
+    blockOpen: "{{ .key }} {"
+    blockClose: "}"
+    indent: "    "
+  defaultFileName: nginx.conf
+  outputExtension: .conf

@@ -1,0 +1,15 @@
+templates:
+  - id: minimal
+    name: 最小配置
+    description: 只生成基本字段（不含数据库与功能列表）
+    modules: []
+
+  - id: with_db
+    name: 带数据库
+    description: 启用数据库模块
+    modules: [database]
+
+  - id: full
+    name: 完整配置
+    description: 启用全部模块
+    modules: [database, features]

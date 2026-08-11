@@ -1,0 +1,973 @@
+# Nginx 配置的 Schema 定义（声明式布局渲染）
+# 覆盖：main / events / http / server / location / upstream / SSL / 限流安全 / 代理缓存
+rootId: nginx_config
+fields:
+
+  # ============================================================
+  # 全局配置（main context）
+  # ============================================================
+  - id: user
+    label: 运行用户
+    description: Nginx 工作进程的运行用户和用户组，如 nginx 或 www-data（默认 nobody nobody）
+    type: String
+    defaultValue: nginx
+
+  - id: worker_processes
+    label: Worker 进程数
+    description: 工作进程数量。可选择 auto（自动按 CPU 核数），或填写 1~1024 的整数；CPU 密集型建议等于核数，IO 密集型可 1.5~2 倍
+    type: Enum
+    defaultValue: auto
+    allowCustomValue: true
+    integerOnly: true
+    min: 1
+    max: 1024
+    enumOptions:
+      - value: auto
+        description: 自动检测 CPU 核心数
+
+  - id: worker_cpu_affinity
+    label: CPU 亲和性
+    description: 将 worker 绑定到特定 CPU 核心，如 0001 0010（按核心数写掩码）或 auto
+    type: String
+    defaultValue: ""
+
+  - id: worker_rlimit_nofile
+    label: 文件描述符上限
+    description: 每个 worker 进程可打开的最大文件数，应大于 worker_connections；需配合系统 ulimit -n
+    type: Number
+    defaultValue: 65535
+    integerOnly: true
+    min: 1
+
+  - id: error_log
+    label: 错误日志
+    description: 错误日志路径及级别（debug/info/notice/warn/error/crit/alert/emerg）
+    type: String
+    defaultValue: logs/error.log warn
+
+  - id: pid
+    label: PID 文件
+    description: 存储 master 进程 PID 的文件路径
+    type: String
+    defaultValue: logs/nginx.pid
+
+  # ============================================================
+  # events 上下文
+  # ============================================================
+  - id: events
+    label: 事件处理配置
+    description: 配置 Nginx 的事件处理模型；最大并发连接数 = worker_processes × worker_connections（反向代理需再除以 2）
+    type: Object
+    module: true
+    children:
+      - id: worker_connections
+        label: 最大连接数
+        description: 每个 worker 进程的最大并发连接数（默认 512）
+        type: Number
+        defaultValue: 1024
+        integerOnly: true
+        min: 1
+        max: 1048576
+
+      - id: use
+        label: 事件模型
+        description: 事件驱动模型；Linux 建议 epoll
+        type: Enum
+        defaultValue: epoll
+        enumOptions:
+          - value: epoll
+            description: Linux 下的高性能事件模型
+          - value: kqueue
+            description: FreeBSD/macOS 事件模型
+          - value: select
+            description: 通用事件模型（兼容性最好）
+          - value: poll
+            description: 通用事件模型
+
+      - id: multi_accept
+        label: 多连接接受
+        description: 一个 worker 是否一次接受多个新连接
+        type: Enum
+        defaultValue: on
+        enumOptions:
+          - value: on
+            description: 开启
+          - value: off
+            description: 关闭
+
+  # ============================================================
+  # http 上下文
+  # ============================================================
+  - id: http
+    label: HTTP 配置
+    description: 配置 HTTP 服务的全局设置
+    type: Object
+    module: true
+    children:
+
+      # ---- 基础 MIME 与日志 ----
+      - id: include
+        label: 包含 MIME 文件
+        description: 引入外部配置文件或 MIME 映射，如 mime.types 或 /etc/nginx/conf.d/*.conf
+        type: String
+        defaultValue: mime.types
+
+      - id: default_type
+        label: 默认 MIME 类型
+        description: 无法识别 MIME 类型时的默认 Content-Type
+        type: String
+        defaultValue: text/plain
+
+      - id: charset
+        label: 默认字符集
+        description: 添加到 Content-Type 头中的字符集，如 utf-8
+        type: String
+        defaultValue: ""
+
+      - id: log_format
+        label: 日志格式
+        description: 命名日志格式（含格式名），如 main '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent'
+        type: String
+        defaultValue: main '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"'
+
+      - id: access_log
+        label: 访问日志
+        description: 访问日志路径与格式，如 logs/access.log main
+        type: String
+        defaultValue: logs/access.log main
+
+      - id: error_log
+        label: 错误日志
+        description: http 级错误日志路径及级别
+        type: String
+        defaultValue: logs/error.log warn
+
+      # ---- 传输优化（静态文件黄金组合：sendfile + tcp_nopush + tcp_nodelay） ----
+      - id: sendfile
+        label: 启用 sendfile
+        description: 零拷贝技术传输静态文件
+        type: Enum
+        defaultValue: on
+        enumOptions:
+          - value: on
+            description: 开启
+          - value: off
+            description: 关闭
+
+      - id: tcp_nopush
+        label: 启用 TCP_NOPUSH
+        description: 与 sendfile 配合优化大文件传输（Linux 为 TCP_CORK）
+        type: Enum
+        defaultValue: on
+        enumOptions:
+          - value: on
+            description: 开启
+          - value: off
+            description: 关闭
+
+      - id: tcp_nodelay
+        label: 启用 TCP_NODELAY
+        description: 禁用 Nagle 算法，减少小包延迟
+        type: Enum
+        defaultValue: on
+        enumOptions:
+          - value: on
+            description: 开启
+          - value: off
+            description: 关闭
+
+      # ---- 连接与超时 ----
+      - id: keepalive_timeout
+        label: Keep-Alive 超时时间
+        description: 长连接保持时间，如 75s 或 15s
+        type: String
+        defaultValue: 75s
+
+      - id: keepalive_requests
+        label: 单连接最大请求数
+        description: 单个 Keep-Alive 连接上允许的最大请求数
+        type: Number
+        defaultValue: 1000
+        integerOnly: true
+        min: 1
+
+      - id: client_max_body_size
+        label: 客户端请求体上限
+        description: 客户端请求体最大允许大小，超过返回 413；如 1m、10m
+        type: String
+        defaultValue: 1m
+
+      - id: client_body_buffer_size
+        label: 请求体缓冲区大小
+        description: 客户端请求体缓冲区大小，如 8k
+        type: String
+        defaultValue: ""
+
+      - id: client_header_buffer_size
+        label: 请求头缓冲区大小
+        description: 客户端请求头缓冲区大小，如 1k
+        type: String
+        defaultValue: ""
+
+      - id: large_client_header_buffers
+        label: 大请求头缓冲区
+        description: 大请求头的缓冲区数量与大小，如 4 8k
+        type: String
+        defaultValue: ""
+
+      - id: client_body_timeout
+        label: 请求体读取超时
+        description: 读取客户端请求体的超时时间，如 60s
+        type: String
+        defaultValue: 60s
+
+      - id: client_header_timeout
+        label: 请求头读取超时
+        description: 读取客户端请求头的超时时间，如 60s
+        type: String
+        defaultValue: 60s
+
+      - id: send_timeout
+        label: 响应发送超时
+        description: 向客户端发送响应的超时时间，如 60s
+        type: String
+        defaultValue: 60s
+
+      - id: server_tokens
+        label: 版本号显示
+        description: 响应头中是否显示 Nginx 版本号；生产建议 off
+        type: Enum
+        defaultValue: off
+        enumOptions:
+          - value: on
+            description: 显示
+          - value: off
+            description: 隐藏（推荐）
+
+      # ---- 限流与访问控制（http 级区域定义） ----
+      - id: limit_req_zone
+        label: 请求限流区域
+        description: 定义限流区域，如 $binary_remote_addr zone=one:10m rate=1r/s
+        type: String
+        defaultValue: ""
+
+      - id: limit_conn_zone
+        label: 连接限流区域
+        description: 定义连接数限制区域，如 $binary_remote_addr zone=addr:10m
+        type: String
+        defaultValue: ""
+
+      - id: proxy_cache_path
+        label: 代理缓存路径
+        description: 代理缓存存储路径与参数，如 /data/nginx/cache levels=1:2 keys_zone=cache:10m max_size=10g inactive=60m use_temp_path=off
+        type: String
+        defaultValue: ""
+
+      # ---- 真实客户端 IP（位于代理之后时） ----
+      - id: real_ip_header
+        label: 真实 IP 头
+        description: 从哪个头字段获取真实客户端 IP
+        type: Enum
+        enumOptions:
+          - value: X-Real-IP
+            description: X-Real-IP 头
+          - value: X-Forwarded-For
+            description: X-Forwarded-For 头
+          - value: proxy_protocol
+            description: PROXY 协议
+
+      - id: set_real_ip_from
+        label: 可信代理地址
+        description: 受信任的代理服务器地址或网段，如 10.0.0.0/8
+        type: String
+        defaultValue: ""
+
+      # ---- Gzip 压缩 ----
+      - id: gzip
+        label: 启用 Gzip
+        description: 压缩响应，减少传输数据量
+        type: Enum
+        defaultValue: off
+        enumOptions:
+          - value: on
+            description: 开启
+          - value: off
+            description: 关闭
+
+      - id: gzip_comp_level
+        label: Gzip 压缩级别
+        description: 压缩级别 1~9，越高压缩比越大但越耗 CPU
+        type: Number
+        defaultValue: 5
+        integerOnly: true
+        min: 1
+        max: 9
+
+      - id: gzip_min_length
+        label: Gzip 最小长度
+        description: 小于该字节数的响应不压缩
+        type: Number
+        defaultValue: 1024
+        integerOnly: true
+        min: 0
+
+      - id: gzip_types
+        label: Gzip 类型
+        description: 需要压缩的 MIME 类型列表（空格分隔）
+        type: String
+        defaultValue: text/plain text/css application/javascript application/json image/svg+xml
+
+      - id: gzip_vary
+        label: Gzip Vary 头
+        description: "是否添加 Vary: Accept-Encoding 响应头"
+        type: Enum
+        defaultValue: on
+        enumOptions:
+          - value: on
+            description: 添加（推荐）
+          - value: off
+            description: 不添加
+
+      # ---- 哈希表与缓存 ----
+      - id: server_names_hash_max_size
+        label: 域名哈希表上限
+        description: 服务器名称哈希表最大大小
+        type: Number
+        defaultValue: 512
+        integerOnly: true
+        min: 32
+
+      - id: server_names_hash_bucket_size
+        label: 域名哈希桶大小
+        description: 服务器名称哈希桶大小，如 32 / 64 / 128
+        type: Number
+        integerOnly: true
+        min: 16
+
+      - id: types_hash_max_size
+        label: 类型哈希表大小
+        description: MIME 类型哈希表大小
+        type: Number
+        defaultValue: 4096
+        integerOnly: true
+        min: 64
+
+      - id: open_file_cache
+        label: 文件缓存
+        description: 缓存文件句柄、大小和修改时间，如 max=1000 inactive=20s
+        type: String
+        defaultValue: ""
+
+      - id: open_file_cache_errors
+        label: 缓存查找失败
+        description: 是否缓存文件查找失败的信息
+        type: Enum
+        enumOptions:
+          - value: on
+            description: 缓存
+          - value: off
+            description: 不缓存
+
+      - id: open_file_cache_min_uses
+        label: 文件缓存最少使用次数
+        description: 文件在 inactive 时间内被访问至少多少次后保留在缓存中
+        type: Number
+        integerOnly: true
+        min: 1
+
+      # ---- 核心模块常用项 ----
+      - id: absolute_redirect
+        label: 绝对重定向
+        description: return/rewrite 发出的重定向是否使用绝对路径
+        type: Enum
+        enumOptions:
+          - value: on
+            description: 绝对路径
+          - value: off
+            description: 相对路径
+
+      - id: merge_slashes
+        label: 合并斜杠
+        description: 是否将相邻斜杠合并（如 // 转为 /）
+        type: Enum
+        enumOptions:
+          - value: on
+            description: 合并
+          - value: off
+            description: 不合并
+
+      - id: resolver
+        label: DNS 服务器
+        description: 上游名称动态解析使用的 DNS 服务器，如 8.8.8.8 valid=30s
+        type: String
+        defaultValue: ""
+
+      - id: resolver_timeout
+        label: DNS 解析超时
+        description: DNS 解析超时时间，如 30s
+        type: String
+        defaultValue: ""
+
+      # ---- 上游服务器配置（数组，可添加多个） ----
+      - id: upstreams
+        label: 上游服务器列表
+        description: 定义后端服务器组（负载均衡）
+        type: Array
+        module: true
+        render:
+          itemOpen: "upstream {{ .upstream_name }} {"
+          itemClose: "}"
+        children:
+          - id: upstream_name
+            label: 上游名称
+            description: 用于 proxy_pass 中引用的名称
+            type: String
+            defaultValue: backend
+            render:
+              hidden: true
+
+          - id: load_balancing
+            label: 负载均衡策略
+            description: 选择均衡策略；不选则为默认轮询（round-robin）
+            type: Enum
+            render:
+              line: "{{ . }};"
+            enumOptions:
+              - value: least_conn
+                description: 最小连接数
+              - value: ip_hash
+                description: 按客户端 IP 哈希
+              - value: random
+                description: 随机
+
+          - id: keepalive
+            label: 上游长连接数
+            description: 与上游服务器保持的长连接数，需配合 proxy_http_version 1.1
+            type: Number
+            defaultValue: 32
+            integerOnly: true
+            min: 0
+
+          - id: keepalive_requests
+            label: 长连接最大请求数
+            description: 每个上游长连接的最大请求数
+            type: Number
+            defaultValue: 1000
+            integerOnly: true
+            min: 1
+
+          - id: keepalive_time
+            label: 长连接最大时间
+            description: 通过长连接处理请求的最大时间，如 1h
+            type: String
+            defaultValue: 1h
+
+          - id: zone
+            label: 共享内存区域
+            description: 跨工作进程共享 upstream 配置和状态，如 backend 64k
+            type: String
+            defaultValue: ""
+
+          - id: servers
+            label: 后端服务器列表
+            description: 定义具体的服务器地址和权重
+            type: Array
+            render:
+              item: "server {{ .server_address }} weight={{ .weight }};"
+              inline: true
+            children:
+              - id: server_address
+                label: 服务器地址
+                description: IP 或域名 + 端口，如 127.0.0.1:8080
+                type: String
+                defaultValue: 127.0.0.1:8080
+              - id: weight
+                label: 权重
+                description: 负载均衡权重，数值越大分配越多
+                type: Number
+                defaultValue: 1
+                integerOnly: true
+                min: 0
+                max: 1000
+
+      # ---- Server 配置块（数组，可添加多个） ----
+      - id: servers
+        label: Server 配置列表
+        description: 定义虚拟主机
+        type: Array
+        module: true
+        render:
+          itemOpen: "server {"
+          itemClose: "}"
+        children:
+          - id: listen
+            label: 监听地址/端口
+            description: 监听端口或地址:端口，如 80、443 ssl、443 ssl http2、127.0.0.1:8080
+            type: Enum
+            defaultValue: "80"
+            allowCustomValue: true
+            enumOptions:
+              - value: "80"
+                description: 标准 HTTP 端口
+              - value: "443 ssl"
+                description: HTTPS 端口
+              - value: "443 ssl http2"
+                description: HTTPS + HTTP/2
+              - value: "8080"
+                description: 常见开发端口
+              - value: "127.0.0.1:8080"
+                description: 仅本机访问
+
+          - id: server_name
+            label: 域名
+            description: 虚拟主机名，支持域名、通配符或正则，如 example.com www.example.com
+            type: String
+            defaultValue: localhost
+
+          - id: root
+            label: 网站根目录
+            description: 文档根目录
+            type: String
+            defaultValue: /var/www/html
+
+          - id: index
+            label: 默认首页
+            description: 默认索引文件列表，如 index.html index.php
+            type: String
+            defaultValue: index.html
+
+          - id: try_files
+            label: 回退规则
+            description: 按顺序尝试文件/URI，如 $uri $uri/ =404
+            type: String
+            defaultValue: ""
+
+          - id: return
+            label: 返回响应
+            description: 返回状态码和响应内容，如 301 https://$host$request_uri
+            type: String
+            defaultValue: ""
+
+          - id: rewrite
+            label: 重写规则
+            description: 正则重写 URI，如 ^/old/(.*)$ /new/$1 permanent
+            type: String
+            defaultValue: ""
+
+          - id: error_page
+            label: 错误页
+            description: 自定义错误页，如 404 /404.html
+            type: String
+            defaultValue: ""
+
+          - id: add_header
+            label: 自定义响应头
+            description: 添加响应头，如 X-Content-Type-Options nosniff
+            type: String
+            defaultValue: ""
+
+          - id: limit_rate
+            label: 响应限速
+            description: 限制客户端响应传输速率，如 100k；0 为不限速
+            type: String
+            defaultValue: ""
+
+          - id: access_log
+            label: 访问日志
+            description: 本 Server 的访问日志路径与格式
+            type: String
+            defaultValue: ""
+
+          # ---- 访问控制 ----
+          - id: allow
+            label: 允许访问
+            description: 允许访问的 IP 或网段，如 192.168.33.200
+            type: String
+            defaultValue: ""
+
+          - id: deny
+            label: 拒绝访问
+            description: 拒绝访问的 IP 或网段，如 10.10.0.0/16
+            type: String
+            defaultValue: ""
+
+          - id: auth_basic
+            label: 基本认证提示
+            description: 启用 HTTP 基本认证（提示信息），off 表示关闭
+            type: String
+            defaultValue: ""
+
+          - id: auth_basic_user_file
+            label: 认证用户文件
+            description: HTTP 基本认证的用户名密码文件路径
+            type: String
+            defaultValue: ""
+
+          - id: limit_req
+            label: 请求限流
+            description: 应用限流策略，如 zone=one burst=5 nodelay
+            type: String
+            defaultValue: ""
+
+          - id: limit_conn
+            label: 连接数限制
+            description: 限制并发连接数，如 addr 10
+            type: String
+            defaultValue: ""
+
+          # ---- SSL/TLS（填写证书后按需配置其余项） ----
+          - id: ssl_certificate
+            label: SSL 证书
+            description: SSL 证书文件路径，如 /etc/nginx/ssl/example.com.pem
+            type: String
+            defaultValue: ""
+
+          - id: ssl_certificate_key
+            label: SSL 私钥
+            description: SSL 证书私钥文件路径
+            type: String
+            defaultValue: ""
+
+          - id: ssl_protocols
+            label: TLS 协议版本
+            description: 启用的 TLS 协议版本，如 TLSv1.2 TLSv1.3
+            type: String
+            defaultValue: ""
+
+          - id: ssl_ciphers
+            label: 加密套件
+            description: 启用的加密套件（默认 HIGH:!aNULL:!MD5）
+            type: String
+            defaultValue: ""
+
+          - id: ssl_prefer_server_ciphers
+            label: 优先服务器套件
+            description: 是否优先使用服务器端的加密套件顺序
+            type: Enum
+            enumOptions:
+              - value: on
+                description: 优先服务器
+              - value: off
+                description: 优先客户端
+
+          - id: ssl_session_cache
+            label: SSL 会话缓存
+            description: 会话缓存配置，如 shared:SSL:10m
+            type: String
+            defaultValue: ""
+
+          - id: ssl_session_timeout
+            label: SSL 会话超时
+            description: SSL 会话超时时间，如 10m
+            type: String
+            defaultValue: ""
+
+          - id: ssl_session_tickets
+            label: 会话票据
+            description: 是否启用 SSL 会话票据
+            type: Enum
+            enumOptions:
+              - value: on
+                description: 启用
+              - value: off
+                description: 禁用
+
+          - id: ssl_stapling
+            label: OCSP Stapling
+            description: 启用 OCSP Stapling，提升证书验证速度
+            type: Enum
+            enumOptions:
+              - value: on
+                description: 启用
+              - value: off
+                description: 禁用
+
+          - id: ssl_stapling_verify
+            label: OCSP 响应验证
+            description: 启用 OCSP Stapling 响应验证（需配置 ssl_trusted_certificate）
+            type: Enum
+            enumOptions:
+              - value: on
+                description: 启用
+              - value: off
+                description: 禁用
+
+          - id: ssl_dhparam
+            label: DH 参数文件
+            description: DHE 密钥交换的 DH 参数文件路径
+            type: String
+            defaultValue: ""
+
+          - id: ssl_trusted_certificate
+            label: 受信任 CA 证书
+            description: 用于 OCSP 装订和客户端证书验证的受信任 CA 证书
+            type: String
+            defaultValue: ""
+
+          - id: ssl_verify_client
+            label: 客户端证书验证
+            description: 是否启用客户端证书验证
+            type: Enum
+            enumOptions:
+              - value: off
+                description: 不验证
+              - value: on
+                description: 必须验证
+              - value: optional
+                description: 可选
+              - value: optional_no_ca
+                description: 可选（不校验 CA）
+
+          # ---- Location 路径配置（嵌套数组） ----
+          - id: locations
+            label: Location 路径配置
+            description: 定义 URL 路径的处理规则
+            type: Array
+            module: true
+            render:
+              itemOpen: "location {{ .path }} {"
+              itemClose: "}"
+            children:
+              - id: path
+                label: 路径
+                description: URL 路径，如 /api、/static/ 或精确匹配 =/
+                type: String
+                defaultValue: /
+                render:
+                  hidden: true
+
+              # ---- 反向代理 ----
+              - id: proxy_pass
+                label: 反向代理目标
+                description: 转发请求到后端，如 http://backend（与 root 二选一）
+                type: String
+                defaultValue: ""
+
+              - id: proxy_set_header
+                label: 代理请求头
+                description: 转发时设置的请求头，如 Host $host
+                type: String
+                defaultValue: ""
+
+              - id: proxy_http_version
+                label: 代理 HTTP 版本
+                description: 与上游通信的 HTTP 版本（使用 upstream keepalive 需 1.1）
+                type: Enum
+                defaultValue: "1.1"
+                enumOptions:
+                  - value: "1.0"
+                    description: HTTP/1.0
+                  - value: "1.1"
+                    description: HTTP/1.1（推荐）
+
+              - id: proxy_buffering
+                label: 代理响应缓冲
+                description: 是否缓冲后端服务器的响应
+                type: Enum
+                defaultValue: on
+                enumOptions:
+                  - value: on
+                    description: 缓冲
+                  - value: off
+                    description: 不缓冲
+
+              - id: proxy_buffer_size
+                label: 响应头缓冲区
+                description: 代理响应第一部分的缓冲区大小，如 4k
+                type: String
+                defaultValue: ""
+
+              - id: proxy_buffers
+                label: 响应缓冲区
+                description: 代理响应的缓冲区数量与大小，如 8 4k
+                type: String
+                defaultValue: ""
+
+              - id: proxy_busy_buffers_size
+                label: 繁忙缓冲区上限
+                description: 繁忙缓冲区大小上限，如 8k
+                type: String
+                defaultValue: ""
+
+              - id: proxy_connect_timeout
+                label: 连接超时
+                description: 与后端建立连接的超时时间，如 60s
+                type: String
+                defaultValue: 60s
+
+              - id: proxy_read_timeout
+                label: 读取超时
+                description: 从后端读取响应的超时时间，如 60s
+                type: String
+                defaultValue: 60s
+
+              - id: proxy_send_timeout
+                label: 发送超时
+                description: 向后端发送请求的超时时间，如 60s
+                type: String
+                defaultValue: 60s
+
+              - id: proxy_redirect
+                label: 重定向改写
+                description: 修改后端返回的重定向地址，default / off / 重写规则
+                type: String
+                defaultValue: ""
+
+              - id: proxy_next_upstream
+                label: 失败重试条件
+                description: 转发失败时的重试条件，如 error timeout http_500
+                type: String
+                defaultValue: ""
+
+              # ---- 代理缓存 ----
+              - id: proxy_cache
+                label: 启用代理缓存
+                description: 是否启用代理缓存（需在 http 级配置 proxy_cache_path）
+                type: Enum
+                enumOptions:
+                  - value: on
+                    description: 启用
+                  - value: off
+                    description: 禁用
+
+              - id: proxy_cache_key
+                label: 缓存键
+                description: 缓存键规则，如 $scheme$proxy_host$request_uri
+                type: String
+                defaultValue: ""
+
+              - id: proxy_cache_valid
+                label: 缓存有效期
+                description: 不同状态码的缓存有效期，如 200 302 1h
+                type: String
+                defaultValue: ""
+
+              - id: proxy_cache_use_stale
+                label: 过期缓存兜底
+                description: 后端异常时使用过期缓存的条件，如 error timeout updating
+                type: String
+                defaultValue: ""
+
+              - id: proxy_cache_lock
+                label: 缓存锁
+                description: 防止多个请求同时向上游请求同一个未缓存资源
+                type: Enum
+                enumOptions:
+                  - value: on
+                    description: 启用
+                  - value: off
+                    description: 禁用
+
+              - id: proxy_cache_revalidate
+                label: 缓存再验证
+                description: 缓存过期后用 If-Modified-Since 条件请求
+                type: Enum
+                enumOptions:
+                  - value: on
+                    description: 启用
+                  - value: off
+                    description: 禁用
+
+              # ---- 上游 TLS ----
+              - id: proxy_ssl_protocols
+                label: 上游 TLS 协议
+                description: 与上游建立 SSL 连接时的协议版本，如 TLSv1.2 TLSv1.3
+                type: String
+                defaultValue: ""
+
+              - id: proxy_ssl_verify
+                label: 上游证书验证
+                description: 是否验证上游服务器的 SSL 证书
+                type: Enum
+                enumOptions:
+                  - value: on
+                    description: 验证
+                  - value: off
+                    description: 不验证
+
+              # ---- 静态文件 ----
+              - id: root
+                label: 本地根目录
+                description: 本地文件路径（与 proxy_pass 二选一）
+                type: String
+                defaultValue: ""
+
+              - id: index
+                label: 默认首页
+                description: 本 Location 的默认索引文件
+                type: String
+                defaultValue: ""
+
+              - id: try_files
+                label: 回退规则
+                description: 按顺序尝试的文件规则，如 $uri $uri/ =404
+                type: String
+                defaultValue: ""
+
+              # ---- 跳转与响应头 ----
+              - id: return
+                label: 返回响应
+                description: 返回状态码和响应内容，如 301 https://$host$request_uri
+                type: String
+                defaultValue: ""
+
+              - id: rewrite
+                label: 重写规则
+                description: 正则重写 URI
+                type: String
+                defaultValue: ""
+
+              - id: error_page
+                label: 错误页
+                description: 自定义错误页
+                type: String
+                defaultValue: ""
+
+              - id: add_header
+                label: 自定义响应头
+                description: 添加响应头，如 X-Frame-Options SAMEORIGIN
+                type: String
+                defaultValue: ""
+
+              - id: limit_rate
+                label: 响应限速
+                description: 限制响应传输速率，如 100k
+                type: String
+                defaultValue: ""
+
+              # ---- 访问控制 ----
+              - id: allow
+                label: 允许访问
+                description: 允许访问的 IP 或网段
+                type: String
+                defaultValue: ""
+
+              - id: deny
+                label: 拒绝访问
+                description: 拒绝访问的 IP 或网段
+                type: String
+                defaultValue: ""
+
+              - id: auth_basic
+                label: 基本认证提示
+                description: 启用 HTTP 基本认证（提示信息）
+                type: String
+                defaultValue: ""
+
+              - id: auth_basic_user_file
+                label: 认证用户文件
+                description: HTTP 基本认证的用户名密码文件路径
+                type: String
+                defaultValue: ""
+
+              - id: limit_req
+                label: 请求限流
+                description: 应用限流策略，如 zone=one burst=5 nodelay
+                type: String
+                defaultValue: ""
+
+              - id: limit_conn
+                label: 连接数限制
+                description: 限制并发连接数
+                type: String
+                defaultValue: ""

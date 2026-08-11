@@ -1,0 +1,21 @@
+# 场景模板：定义"涉及哪些模块、字段配置与数值"
+# 勾选父模块不会自动勾选子模块；子模块的勾选集合由这里的 modules 定义
+templates:
+  - id: full
+    name: 完整配置
+    description: 常用生产配置：events + http（含 upstream、server、location）
+    modules: [events, http, http.upstreams, http.servers]
+
+  - id: http_only
+    name: 仅 HTTP 基础
+    description: 只生成 http 块（静态服务基础设置），可自定义超时时间
+    modules: [http]
+    values:
+      http:
+        sendfile: on
+        keepalive_timeout: 120
+
+  - id: reverse_proxy
+    name: 反向代理
+    description: http + upstream + server（含 location 代理配置）
+    modules: [http, http.upstreams, http.servers]

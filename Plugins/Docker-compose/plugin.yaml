@@ -1,0 +1,16 @@
+name: Docker Compose
+version: 1.0.0
+target:
+  name: docker compose
+  version: ">=2.0"
+  note: 生成 docker-compose.yml；顶层命名卷/网络留待正式版
+author: Ferry Community
+description: 生成 docker-compose.yml（声明式布局）
+renderer:
+  type: layout
+  layout:
+    line: "{{ .key }}: {{ . }}"
+    blockOpen: "{{ .key }}:"
+    blockClose: ""
+    indent: "  "
+  defaultFileName: docker-compose.yml

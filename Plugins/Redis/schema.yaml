@@ -1,0 +1,146 @@
+rootId: redis_conf
+fields:
+  - id: bind
+    label: 监听地址
+    description: 监听地址，如 127.0.0.1 -::1（仅本机）或 0.0.0.0（所有接口）
+    type: String
+    defaultValue: 127.0.0.1 -::1
+
+  - id: protected_mode
+    label: 保护模式
+    description: 无密码且对外监听时拒绝远程访问
+    type: Enum
+    defaultValue: "yes"
+    render:
+      line: "protected-mode {{ . }}"
+    enumOptions:
+      - value: "yes"
+        description: 开启（推荐）
+      - value: "no"
+        description: 关闭
+
+  - id: port
+    label: 端口
+    description: 监听端口
+    type: Number
+    defaultValue: 6379
+    integerOnly: true
+    min: 1
+    max: 65535
+
+  - id: tcp_backlog
+    label: TCP 积压队列
+    description: 未完成握手连接的队列长度
+    type: Number
+    defaultValue: 511
+    integerOnly: true
+    min: 1
+    render:
+      line: "tcp-backlog {{ . }}"
+
+  - id: timeout
+    label: 空闲超时
+    description: 客户端空闲多少秒后关闭连接，0 表示不关闭
+    type: Number
+    defaultValue: 0
+    integerOnly: true
+    min: 0
+
+  - id: daemonize
+    label: 后台运行
+    description: 是否以守护进程方式运行（容器内通常 no）
+    type: Enum
+    defaultValue: "no"
+    enumOptions:
+      - value: "yes"
+        description: 后台运行
+      - value: "no"
+        description: 前台运行
+
+  - id: databases
+    label: 数据库数量
+    description: 可切换的数据库数量
+    type: Number
+    defaultValue: 16
+    integerOnly: true
+    min: 1
+    max: 1000
+
+  - id: save
+    label: RDB 快照规则
+    description: 如 3600 1（1 小时内至少 1 次变更即保存）；留空使用默认规则
+    type: String
+    defaultValue: ""
+
+  - id: appendonly
+    label: AOF 持久化
+    description: 是否开启追加日志
+    type: Enum
+    defaultValue: "no"
+    enumOptions:
+      - value: "yes"
+        description: 开启
+      - value: "no"
+        description: 关闭
+
+  - id: appendfsync
+    label: AOF 同步策略
+    description: 多久把缓冲写入磁盘
+    type: Enum
+    defaultValue: everysec
+    enumOptions:
+      - value: always
+        description: 每个命令都同步（最安全最慢）
+      - value: everysec
+        description: 每秒同步（折中，推荐）
+      - value: "no"
+        description: 交给系统（最快最不安全）
+
+  - id: requirepass
+    label: 访问密码
+    description: 客户端访问密码；留空表示无密码
+    type: String
+    defaultValue: ""
+
+  - id: maxmemory
+    label: 最大内存
+    description: 内存上限，如 100mb、1gb；留空不限制
+    type: String
+    defaultValue: ""
+
+  - id: maxmemory_policy
+    label: 内存淘汰策略
+    description: 达到上限后的淘汰策略
+    type: Enum
+    defaultValue: noeviction
+    render:
+      line: "maxmemory-policy {{ . }}"
+    enumOptions:
+      - value: noeviction
+        description: 不淘汰，写请求报错（默认）
+      - value: allkeys-lru
+        description: 所有键中淘汰最久未使用
+      - value: allkeys-lfu
+        description: 所有键中淘汰最不常用
+      - value: volatile-lru
+        description: 带过期时间的键中淘汰最久未使用
+      - value: volatile-lfu
+        description: 带过期时间的键中淘汰最不常用
+      - value: allkeys-random
+        description: 所有键中随机淘汰
+      - value: volatile-random
+        description: 带过期时间的键中随机淘汰
+      - value: volatile-ttl
+        description: 优先淘汰即将过期的键
+
+  - id: logfile
+    label: 日志文件
+    description: 日志文件路径；留空输出到标准输出
+    type: String
+    defaultValue: ""
+
+  - id: dir
+    label: 数据目录
+    description: RDB/AOF 持久化文件目录
+    type: String
+    defaultValue: /var/lib/redis

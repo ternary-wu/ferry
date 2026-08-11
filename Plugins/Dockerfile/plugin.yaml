@@ -1,0 +1,16 @@
+name: Dockerfile
+version: 1.0.0
+target:
+  name: docker
+  version: ">=20"
+  note: 生成单阶段 Dockerfile；多阶段构建与 ARG/HEALTHCHECK 等留待正式版
+author: Ferry Community
+description: 生成 Dockerfile（常用指令，单阶段）
+renderer:
+  type: layout
+  layout:
+    line: "{{ .key }} {{ . }}"
+    blockOpen: "{{ .key }} {"
+    blockClose: "}"
+    indent: "    "
+  defaultFileName: Dockerfile

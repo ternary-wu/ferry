@@ -1,0 +1,64 @@
+rootId: app_config
+fields:
+  - id: app_name
+    label: 应用名称
+    description: 应用的显示名称
+    type: String
+    defaultValue: demo-app
+
+  - id: debug
+    label: 调试模式
+    description: 开启后输出详细日志
+    type: Boolean
+    defaultValue: false
+
+  - id: port
+    label: 服务端口
+    description: HTTP 服务监听端口
+    type: Number
+    defaultValue: 8080
+    integerOnly: true
+    min: 1
+    max: 65535
+
+  - id: database
+    label: 数据库
+    description: 数据库连接配置
+    type: Object
+    module: true
+    children:
+      - id: host
+        label: 主机
+        description: 数据库主机地址
+        type: String
+        defaultValue: localhost
+      - id: port
+        label: 端口
+        description: 数据库端口
+        type: Number
+        defaultValue: 5432
+        integerOnly: true
+        min: 1
+        max: 65535
+      - id: name
+        label: 数据库名
+        description: 数据库名称
+        type: String
+        defaultValue: app
+
+  - id: features
+    label: 功能开关
+    description: 应用功能列表
+    type: Array
+    module: true
+    children:
+      - id: feature_name
+        label: 功能名称
+        description: 功能标识
+        type: String
+        defaultValue: login
+      - id: enabled
+        label: 启用
+        description: 是否启用该功能
+        type: Boolean
+        defaultValue: true

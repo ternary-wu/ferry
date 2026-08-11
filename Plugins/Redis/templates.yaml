@@ -1,0 +1,28 @@
+templates:
+  - id: secure
+    name: 生产安全
+    description: 本机监听 + 保护模式 + 访问密码
+    modules: []
+    values:
+      bind: 127.0.0.1 -::1
+      protected_mode: "yes"
+      requirepass: change-me
+
+  - id: cache_only
+    name: 纯缓存
+    description: 限制内存、关闭持久化
+    modules: []
+    values:
+      appendonly: "no"
+      save: ""
+      maxmemory: 256mb
+      maxmemory_policy: allkeys-lru
+
+  - id: persistent
+    name: 持久化存储
+    description: 开启 AOF 与 RDB 快照
+    modules: []
+    values:
+      appendonly: "yes"
+      appendfsync: everysec
+      save: 3600 1

@@ -1,0 +1,83 @@
+rootId: dockerfile
+fields:
+  - id: FROM
+    label: 基础镜像
+    description: 基础镜像及版本标签，如 node:20-alpine
+    type: String
+    defaultValue: node:20-alpine
+    required: true
+
+  - id: WORKDIR
+    label: 工作目录
+    description: 容器内的工作目录
+    type: String
+    defaultValue: /app
+
+  - id: ENV
+    label: 环境变量
+    description: 设置环境变量，每项一行
+    type: Array
+    render:
+      item: "ENV {{ .name }}={{ .value }}"
+    children:
+      - id: name
+        label: 变量名
+        description: 如 NODE_ENV
+        type: String
+        defaultValue: NODE_ENV
+      - id: value
+        label: 值
+        description: 如 production
+        type: String
+        defaultValue: production
+
+  - id: COPY
+    label: 复制文件
+    description: 复制文件/目录到镜像，每项一行
+    type: Array
+    render:
+      item: "COPY {{ .source }} {{ .dest }}"
+    children:
+      - id: source
+        label: 源路径
+        description: 构建上下文中的路径，如 package*.json
+        type: String
+        defaultValue: package*.json
+      - id: dest
+        label: 目标路径
+        description: 镜像内目标路径，如 /app/
+        type: String
+        defaultValue: /app/
+
+  - id: RUN
+    label: 运行命令
+    description: 构建期间执行的命令，每项一行
+    type: Array
+    render:
+      item: "RUN {{ .command }}"
+    children:
+      - id: command
+        label: 命令
+        type: String
+        defaultValue: npm install
+
+  - id: EXPOSE
+    label: 暴露端口
+    description: 容器监听的端口，每项一行
+    type: Array
+    render:
+      item: "EXPOSE {{ .port }}"
+    children:
+      - id: port
+        label: 端口
+        type: Number
+        defaultValue: 3000
+        integerOnly: true
+        min: 1
+        max: 65535
+
+  - id: CMD
+    label: 启动命令
+    description: 容器启动命令，如 ["npm", "start"]
+    type: String
+    defaultValue: '["npm", "start"]'

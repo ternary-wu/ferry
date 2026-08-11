@@ -1,0 +1,137 @@
+rootId: docker_compose
+fields:
+  - id: version
+    label: Compose 版本
+    description: compose 文件格式版本，如 3.8（新版可留空）
+    type: String
+    defaultValue: "3.8"
+
+  - id: services
+    label: 服务列表
+    description: 定义各个服务（键为服务名的映射）
+    type: Object
+    module: true
+    render:
+      open: "services:"
+      close: ""
+    children:
+      - id: items
+        label: 服务项
+        description: 可添加多个服务
+        type: Array
+        render:
+          itemOpen: "{{ .name }}:"
+          itemClose: ""
+        children:
+          - id: name
+            label: 服务名
+            description: 服务标识，也是 compose 中的键名
+            type: String
+            defaultValue: web
+            render:
+              hidden: true
+
+          - id: image
+            label: 镜像
+            description: 使用的镜像，如 nginx:latest
+            type: String
+            defaultValue: nginx:latest
+
+          - id: container_name
+            label: 容器名
+            description: 自定义容器名；留空由 compose 自动命名
+            type: String
+            defaultValue: ""
+
+          - id: restart
+            label: 重启策略
+            description: 容器退出后的重启策略
+            type: Enum
+            defaultValue: unless-stopped
+            enumOptions:
+              - value: "no"
+                description: 不自动重启
+              - value: always
+                description: 总是重启
+              - value: on-failure
+                description: 失败时重启
+              - value: unless-stopped
+                description: 除非手动停止，否则重启（推荐）
+
+          - id: ports
+            label: 端口映射
+            description: 宿主机端口:容器端口，每项一行
+            type: Array
+            render:
+              open: "ports:"
+              item: '- "{{ .host }}:{{ .container }}"'
+            children:
+              - id: host
+                label: 宿主机端口
+                type: Number
+                defaultValue: 80
+                integerOnly: true
+                min: 1
+                max: 65535
+              - id: container
+                label: 容器端口
+                type: Number
+                defaultValue: 80
+                integerOnly: true
+                min: 1
+                max: 65535
+
+          - id: environment
+            label: 环境变量
+            description: 传给容器的环境变量，每项一行
+            type: Array
+            render:
+              open: "environment:"
+              item: "- {{ .name }}={{ .value }}"
+            children:
+              - id: name
+                label: 变量名
+                type: String
+                defaultValue: NODE_ENV
+              - id: value
+                label: 值
+                type: String
+                defaultValue: production
+
+          - id: volumes
+            label: 数据卷
+            description: 挂载的卷，源:目标，每项一行
+            type: Array
+            render:
+              open: "volumes:"
+              item: "- {{ .source }}:{{ .target }}"
+            children:
+              - id: source
+                label: 源
+                description: 宿主机路径或命名卷
+                type: String
+                defaultValue: ./data
+              - id: target
+                label: 目标
+                description: 容器内路径
+                type: String
+                defaultValue: /data
+
+          - id: depends_on
+            label: 依赖服务
+            description: 启动顺序依赖的服务，每项一行
+            type: Array
+            render:
+              open: "depends_on:"
+              item: "- {{ .service }}"
+            children:
+              - id: service
+                label: 服务名
+                type: String
+                defaultValue: db
+
+          - id: command
+            label: 启动命令
+            description: 覆盖镜像默认启动命令，如 ["npm", "start"]
+            type: String
+            defaultValue: ""
