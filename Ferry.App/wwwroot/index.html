@@ -1,402 +1,236 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8" />
-  <title>Ferry</title>
-  <style>
-    :root {
-      --bg-primary: #0d1117; --bg-secondary: #161b22; --bg-tertiary: #21262d;
-      --bg-quaternary: #30363d; --bg-hover: #1c2128; --bg-active: #2d333b;
-      --border-default: #30363d; --border-hover: #484f58; --border-focus: #58a6ff;
-      --text-primary: #e6edf3; --text-secondary: #8b949e; --text-tertiary: #6e7681;
-      --accent: #58a6ff; --accent-hover: #79c0ff;
-      --accent-muted: rgba(88,166,255,.15); --accent-border: rgba(88,166,255,.3);
-      --success: #3fb950; --warning: #d29922; --error: #f85149; --error-muted: rgba(248,81,73,.15);
-      --toolbar-height: 48px; --statusbar-height: 28px; --sidebar-width: 250px; --preview-width: 420px;
-      --radius-sm: 4px; --radius-md: 6px; --radius-lg: 8px;
-      --transition-fast: 120ms ease; --transition-normal: 200ms ease;
-      --mono: 'Cascadia Code', 'Fira Code', Consolas, monospace;
-    }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; overflow: hidden; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
-      font-size: 13px; line-height: 1.5; color: var(--text-primary);
-      background: var(--bg-primary); -webkit-font-smoothing: antialiased;
-    }
-    button { font-family: inherit; font-size: inherit; color: inherit; background: none; border: none; cursor: pointer; }
-    input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
-    ::-webkit-scrollbar { width: 8px; height: 8px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--bg-quaternary); border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
+<meta charset="UTF-8">
+<title>Ferry</title>
+<style>
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;height:100vh;background:#212121;color:#eee;font-family:"Segoe UI",Arial,sans-serif;font-size:13px;overflow:hidden;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;font-size:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#3a3a3a;border-radius:4px}
+::-webkit-scrollbar-track{background:transparent}
 
-    .app { display: flex; flex-direction: column; height: 100vh; }
+.app{display:flex;height:100vh}
 
-    /* ===== 工具栏 ===== */
-    .toolbar {
-      height: var(--toolbar-height); display: flex; align-items: center; gap: 8px;
-      padding: 0 12px; background: var(--bg-secondary); border-bottom: 1px solid var(--border-default);
-      flex-shrink: 0; z-index: 100;
-    }
-    .app-logo { display: flex; align-items: center; gap: 8px; padding: 4px 8px; margin-right: 4px; user-select: none; }
-    .app-logo-icon {
-      width: 24px; height: 24px; background: linear-gradient(135deg, var(--accent), #7c3aed);
-      border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center;
-      color: #fff; font-weight: 700; font-size: 14px;
-    }
-    .app-logo-text { font-size: 14px; font-weight: 600; letter-spacing: .2px; }
-    .toolbar-divider { width: 1px; height: 20px; background: var(--border-default); margin: 0 4px; }
-    .toolbar-btn {
-      display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: var(--radius-md);
-      color: var(--text-secondary); font-size: 12px; white-space: nowrap;
-      transition: all var(--transition-fast);
-    }
-    .toolbar-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
-    .toolbar-btn.primary { background: var(--accent); color: #fff; }
-    .toolbar-btn.primary:hover { background: var(--accent-hover); }
-    .toolbar-btn.danger:hover { background: var(--error-muted); color: var(--error); }
-    .toolbar-btn.active { background: var(--accent-muted); color: var(--accent); }
-    select.input, input.input {
-      background: var(--bg-tertiary); border: 1px solid var(--border-default);
-      border-radius: var(--radius-md); padding: 5px 10px; font-size: 12px; outline: none;
-      transition: all var(--transition-fast); color: var(--text-primary);
-    }
-    select.input:focus, input.input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-muted); }
-    .toolbar-spacer { flex: 1; }
+/* ===== 左侧导航 ===== */
+.sidebar{width:310px;min-width:310px;background:#171717;border-right:1px solid #333;padding:14px;display:flex;flex-direction:column;overflow-y:auto}
+.logo{font-size:20px;font-weight:600;margin-bottom:18px;letter-spacing:.3px}
+.project{
+  width:100%;background:#303030;padding:13px 14px;border-radius:12px;cursor:pointer;
+  border:1px solid transparent;color:#eee;font-size:14px;outline:none;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23999' d='M5 6L0 0h10z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 14px center;
+}
+.project:hover{border-color:#555}
+.btn{background:#303030;padding:12px;border-radius:10px;text-align:center;margin-top:14px;cursor:pointer;transition:background .12s}
+.btn:hover{background:#3a3a3a}
+.btn.primary{background:#2f6feb;color:#fff}
+.btn.primary:hover{background:#3a7bf0}
+.btn.small{padding:6px 10px;border-radius:8px;margin:0;font-size:12px}
+.section{font-size:12px;color:#999;margin:22px 0 8px}
+.tree{display:flex;justify-content:space-between;align-items:center;padding:8px 6px;color:#ddd;cursor:pointer;border-radius:8px;user-select:none}
+.tree:hover{background:#222}
+.tree .plus{opacity:0;color:#999;cursor:pointer;padding:0 6px}
+.tree:hover .plus{opacity:1}
+.tree .plus:hover{color:#fff}
+.item{padding:8px 12px;border-radius:8px;margin:3px 0;cursor:pointer;color:#ddd;display:flex;align-items:center;gap:8px}
+.item:hover{background:#303030}
+.item.active{background:#303030;color:#fff}
+.item .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .badge{font-size:11px;color:#888}
+.item .badge.missing{color:#f85149}
+.item .del{opacity:0;color:#888}
+.item:hover .del{opacity:1}
+.item .del:hover{color:#f85149}
+.child{padding-left:30px}
+.spacer{flex:1}
+.setting{padding:10px 6px;color:#aaa;cursor:pointer;border-radius:8px;font-size:13px}
+.setting:hover{background:#222;color:#fff}
 
-    /* ===== 主体 ===== */
-    .main-content { flex: 1; display: flex; overflow: hidden; }
+/* ===== 右侧工作区 ===== */
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{height:58px;border-bottom:1px solid #333;display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:0 20px;flex-shrink:0}
+.top .title{margin-right:auto;font-size:14px;font-weight:600;color:#eee;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.topBtn{background:#303030;padding:8px 14px;border-radius:10px;cursor:pointer;color:#ddd;transition:background .12s;white-space:nowrap}
+.topBtn:hover{background:#3a3a3a;color:#fff}
+.topBtn.primary{background:#2f6feb;color:#fff}
+.topBtn.primary:hover{background:#3a7bf0}
+.topBtn.danger:hover{background:#3a1f1f;color:#f85149}
+.topBtn.active{background:#2f6feb;color:#fff}
+.content{flex:1;display:flex;min-height:0}
 
-    /* ===== 左侧边栏 ===== */
-    .sidebar {
-      width: var(--sidebar-width); min-width: var(--sidebar-width); display: flex; flex-direction: column;
-      background: var(--bg-secondary); border-right: 1px solid var(--border-default); flex-shrink: 0;
-    }
-    .sidebar-tabs { display: flex; border-bottom: 1px solid var(--border-default); }
-    .sidebar-tab {
-      flex: 1; padding: 8px 4px; text-align: center; font-size: 12px; color: var(--text-secondary);
-      border-bottom: 2px solid transparent; transition: all var(--transition-fast); user-select: none;
-    }
-    .sidebar-tab:hover { color: var(--text-primary); background: var(--bg-hover); }
-    .sidebar-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-    .sidebar-body { flex: 1; overflow-y: auto; padding: 10px; }
-    .sidebar-section-title {
-      font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px;
-      color: var(--text-secondary); margin: 8px 2px 6px;
-    }
-    .sidebar-section-title:first-child { margin-top: 0; }
-    .row { display: flex; gap: 6px; margin: 4px 0; flex-wrap: wrap; align-items: center; }
-    .row > * { flex: 0 0 auto; }
-    .row input.input, .row select.input { flex: 1; min-width: 80px; }
+.editor{flex:1;padding:30px;overflow-y:auto}
+.editor-head{max-width:720px;margin:0 auto}
+.editor-head h2{font-size:22px;margin:0 0 4px}
+.editor-head p{color:#999;margin:0 0 18px;font-size:13px}
+.editor-tools{display:flex;gap:8px;margin-bottom:6px}
 
-    .config-item {
-      display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid transparent;
-      border-radius: var(--radius-md); cursor: pointer; transition: all var(--transition-fast);
-    }
-    .config-item:hover { background: var(--bg-hover); }
-    .config-item.active { border-color: var(--accent-border); background: var(--accent-muted); }
-    .config-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
-    .config-item .badge { font-size: 10px; color: var(--text-tertiary); }
-    .config-item .missing { color: var(--error); }
-    .icon-btn {
-      width: 22px; height: 22px; border-radius: var(--radius-sm); display: flex; align-items: center;
-      justify-content: center; color: var(--text-tertiary); font-size: 12px; transition: all var(--transition-fast);
-    }
-    .icon-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
-    .icon-btn.danger:hover { background: var(--error-muted); color: var(--error); }
-    .btn {
-      padding: 5px 10px; border-radius: var(--radius-md); background: var(--bg-tertiary);
-      border: 1px solid var(--border-default); font-size: 12px; color: var(--text-primary);
-      transition: all var(--transition-fast); white-space: nowrap;
-    }
-    .btn:hover { border-color: var(--accent); color: var(--accent); }
-    .btn.primary { border-color: var(--accent); color: var(--accent); }
-    .btn.danger:hover { border-color: var(--error); color: var(--error); }
+.card{background:#2b2b2b;border:1px solid #444;border-radius:14px;margin-top:16px;width:100%;overflow:hidden}
+.card-head{display:flex;align-items:center;gap:10px;padding:14px 18px;cursor:pointer;user-select:none;transition:background .12s}
+.card-head:hover{background:#2f2f2f}
+.card-head .title{flex:1;font-size:15px;font-weight:600}
+.card-head .count{font-size:12px;color:#999;background:#3a3a3a;padding:1px 8px;border-radius:10px}
+.card-head .chev{color:#888;font-size:11px;transition:transform .2s}
+.card.collapsed .card-head .chev{transform:rotate(-90deg)}
+.card.collapsed .card-body{display:none}
+.card.disabled .card-body{opacity:.5}
+.card-body{padding:2px 18px 12px}
+.row{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:11px 0;border-bottom:1px solid #444}
+.row:last-child{border-bottom:none}
+.row-label{flex:0 0 150px;padding-top:5px}
+.row-label .n{font-size:13px;font-weight:500}
+.row-label .d{font-size:11px;color:#999;line-height:1.4;margin-top:1px}
+.row-control{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.row-control input[type=text],.row-control input[type=number],.row-control select{
+  width:100%;background:#171717;color:#eee;border:1px solid #555;padding:8px 10px;border-radius:10px;outline:none;font-size:13px;transition:border .12s}
+.row-control input:focus,.row-control select:focus{border-color:#2f6feb}
+.row-error{color:#f85149;font-size:12px}
+.check{width:16px;height:16px;border:1.5px solid #666;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .12s;background:transparent;color:transparent;font-size:11px;margin-top:4px}
+.check:hover{border-color:#2f6feb}
+.check.checked{background:#2f6feb;border-color:#2f6feb;color:#fff}
+.check.lock{border:none;cursor:default;font-size:11px;color:#888}
+.toggle{width:36px;height:20px;background:#3a3a3a;border-radius:10px;cursor:pointer;position:relative;transition:background .12s;flex-shrink:0}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;background:#ddd;border-radius:50%;transition:left .12s}
+.toggle.active{background:#2f6feb}
+.toggle.active::after{left:18px}
+.array-item{border:1px solid #444;border-radius:10px;margin:8px 0;background:#222}
+.array-item-head{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;user-select:none}
+.array-item-head .t{flex:1;font-size:13px;color:#ccc}
+.array-item-head .del{color:#888;opacity:0}
+.array-item-head:hover .del{opacity:1}
+.array-item-head .del:hover{color:#f85149}
+.array-item.collapsed .array-item-body{display:none}
+.array-item-body{padding:2px 12px 10px;border-top:1px solid #444}
+.array-add{display:inline-flex;align-items:center;gap:6px;color:#999;border:1px dashed #555;padding:8px 12px;border-radius:10px;margin-top:8px;cursor:pointer;transition:all .12s}
+.array-add:hover{color:#2f6feb;border-color:#2f6feb}
 
-    /* 模块树 */
-    .module-search { position: relative; margin-bottom: 8px; }
-    .module-search input {
-      width: 100%; padding: 5px 10px; background: var(--bg-tertiary);
-      border: 1px solid var(--border-default); border-radius: var(--radius-md); font-size: 12px; outline: none;
-    }
-    .module-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-muted); }
-    .tree-node { user-select: none; }
-    .tree-node-label {
-      display: flex; align-items: center; gap: 6px; padding: 3px 6px; cursor: pointer;
-      border-radius: var(--radius-sm); transition: background var(--transition-fast);
-    }
-    .tree-node-label:hover { background: var(--bg-hover); }
-    .tree-toggle { width: 14px; text-align: center; color: var(--text-tertiary); font-size: 10px;
-      transition: transform var(--transition-fast); flex-shrink: 0; }
-    .tree-toggle.expanded { transform: rotate(90deg); }
-    .tree-checkbox {
-      width: 14px; height: 14px; border: 1.5px solid var(--border-hover); border-radius: 3px;
-      display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer;
-      transition: all var(--transition-fast); background: transparent;
-    }
-    .tree-checkbox:hover { border-color: var(--accent); }
-    .tree-checkbox.checked { background: var(--accent); border-color: var(--accent); }
-    .tree-checkbox.checked::after { content: '✓'; color: #fff; font-size: 10px; line-height: 1; }
-    .tree-checkbox.locked {
-      border: none; background: transparent; color: var(--text-tertiary);
-      font-size: 10px; cursor: default; pointer-events: none; width: auto; height: auto;
-    }
-    .tree-checkbox.locked::after { content: ''; }
-    .tree-label-text { flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .tree-count { font-size: 10px; color: var(--text-tertiary); }
-    .tree-node-label.disabled .tree-label-text { color: var(--text-tertiary); }
-    .tree-children { padding-left: 18px; }
-    .tree-children.collapsed { display: none; }
+/* 快速操作卡 */
+.quick-row{padding:13px 18px;border-bottom:1px solid #444;display:flex;align-items:center;gap:10px;cursor:pointer;transition:background .12s}
+.quick-row:last-child{border-bottom:none}
+.quick-row:hover{background:#2f2f2f}
+.quick-row .arrow{margin-left:auto;color:#888}
 
-    /* 版本 / 存档 */
-    .version-item {
-      font-size: 12px; padding: 5px 8px; border: 1px solid var(--border-default); border-radius: var(--radius-md);
-      margin: 4px 0; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all var(--transition-fast);
-    }
-    .version-item:hover { border-color: var(--accent); }
-    .version-item .t { flex: 1; color: var(--text-secondary); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .hint { color: var(--text-tertiary); font-size: 12px; }
-    .report { color: var(--text-tertiary); font-size: 11px; margin-top: 4px; word-break: break-all; }
+/* ===== 源码面板（滑入） ===== */
+.source{width:0;overflow:hidden;background:#181818;border-left:1px solid #444;transition:width .2s;display:flex;flex-direction:column;flex-shrink:0}
+.source.open{width:430px}
+.source.full{position:absolute;right:0;top:58px;bottom:0;width:100%;z-index:5;border-left:none}
+.source-head{height:50px;border-bottom:1px solid #333;display:flex;justify-content:space-between;align-items:center;padding:0 15px;flex-shrink:0}
+.source-head .name{font-size:13px;color:#ccc}
+.source-head .acts{display:flex;gap:10px;color:#888;font-size:14px}
+.source-head .acts span{cursor:pointer}
+.source-head .acts span:hover{color:#fff}
+.source-tabs{display:flex;border-bottom:1px solid #333;flex-shrink:0}
+.source-tab{padding:8px 14px;font-size:12px;color:#999;cursor:pointer;border-bottom:2px solid transparent}
+.source-tab.active{color:#fff;border-bottom-color:#2f6feb}
+.code{padding:18px;font-family:Consolas,monospace;font-size:12px;white-space:pre;overflow:auto;flex:1}
+.editor-ta{flex:1;resize:none;border:none;outline:none;background:#181818;color:#eee;padding:18px;font-family:Consolas,monospace;font-size:12px;line-height:1.5;white-space:pre}
+.source-tools{display:flex;gap:8px;padding:10px;border-top:1px solid #333;flex-wrap:wrap;align-items:center;flex-shrink:0}
+.source-tools input[type=text]{flex:1;min-width:140px;background:#171717;border:1px solid #555;padding:7px 10px;border-radius:8px;color:#eee;outline:none}
+.source-tools .report{width:100%;font-size:11px;color:#999}
+.kw-comment{color:#8b949e;font-style:italic}
+.kw-block{color:#ff7b72}
+.kw-number{color:#d2a8ff}
 
-    /* ===== 中间：面包屑 + 卡片表单 ===== */
-    .form-editor { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
-    .breadcrumbs {
-      height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 16px;
-      background: var(--bg-secondary); border-bottom: 1px solid var(--border-default); flex-shrink: 0;
-      font-size: 12px; color: var(--text-secondary); overflow: hidden; white-space: nowrap;
-    }
-    .breadcrumbs .crumb { padding: 2px 6px; border-radius: var(--radius-sm); }
-    .breadcrumbs .crumb.current { color: var(--text-primary); font-weight: 500; }
-    .form-scroll { flex: 1; overflow-y: auto; padding: 18px 24px 40px; }
-    .form-container { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
-    .form-page-title h1 { font-size: 19px; font-weight: 600; }
-    .form-page-title p { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+/* ===== 弹窗 ===== */
+.modal{display:none;position:absolute;inset:0;background:#0008;z-index:10}
+.modal.open{display:block}
+.window{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:560px;max-width:92vw;max-height:84vh;overflow-y:auto;background:#252525;border-radius:16px;padding:26px}
+.window h2{font-size:18px;margin:0 0 6px}
+.window .sub{color:#999;font-size:13px;margin:0 0 16px}
+.step{display:none}
+.step.active{display:block}
+.search,input[type=text]{width:100%;background:#171717;color:#fff;border:1px solid #555;padding:12px;border-radius:10px;outline:none;font-size:14px}
+.search:focus{border-color:#2f6feb}
+.option{background:#303030;padding:14px;border-radius:10px;margin-top:10px;cursor:pointer;transition:background .12s}
+.option:hover{background:#3a3a3a}
+.option.active{background:#2f6feb22;border:1px solid #2f6feb}
+.option small{color:#999}
+.option .desc{color:#999;font-size:12px;margin-top:2px}
+.field-label{font-size:13px;margin:14px 0 6px;color:#ccc}
+.footer{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
+.footer .btn{margin-top:0}
+.list-item{background:#303030;padding:12px 14px;border-radius:10px;margin-top:10px;cursor:pointer;display:flex;align-items:center;gap:10px}
+.list-item:hover{background:#3a3a3a}
+.list-item .t{flex:1;color:#ccc;font-size:13px}
+.list-item .acts{display:flex;gap:6px;color:#888}
+.list-item .acts span{cursor:pointer}
+.list-item .acts span:hover{color:#fff}
+.list-item .acts .del:hover{color:#f85149}
 
-    .form-card { background: var(--bg-secondary); border: 1px solid var(--border-default);
-      border-radius: var(--radius-lg); overflow: hidden; transition: border-color var(--transition-fast); }
-    .form-card:hover { border-color: var(--border-hover); }
-    .form-card-header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer;
-      transition: background var(--transition-fast); user-select: none; }
-    .form-card-header:hover { background: var(--bg-hover); }
-    .form-card-title-group { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
-    .form-card-icon {
-      width: 26px; height: 26px; background: var(--accent-muted); border-radius: var(--radius-md);
-      display: flex; align-items: center; justify-content: center; color: var(--accent); font-size: 13px; flex-shrink: 0;
-    }
-    .form-card-title { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .form-card-subtitle { font-size: 11px; color: var(--text-tertiary); margin-top: 1px; }
-    .form-card-count { font-size: 11px; color: var(--text-secondary); background: var(--bg-tertiary);
-      padding: 1px 7px; border-radius: 10px; }
-    .form-card-toggle { color: var(--text-tertiary); font-size: 10px; transition: transform var(--transition-normal); }
-    .form-card.collapsed .form-card-toggle { transform: rotate(-90deg); }
-    .form-card.collapsed .form-card-body { display: none; }
-    .form-card-body { padding: 4px 16px 14px; }
-    .form-card.disabled { opacity: .55; }
-    .form-card.enable-hint { display: flex; gap: 8px; align-items: center; padding: 8px 14px; color: var(--text-tertiary); font-size: 12px; }
+/* ===== 状态栏 ===== */
+.statusbar{height:30px;border-top:1px solid #333;display:flex;align-items:center;gap:16px;padding:0 14px;font-size:12px;color:#999;flex-shrink:0}
+.statusbar .ok{color:#3fb950}
+.statusbar .bad{color:#f85149}
+.statusbar .spacer{flex:1}
 
-    .form-field { padding: 9px 0; border-bottom: 1px solid var(--border-default); }
-    .form-field:last-child { border-bottom: none; }
-    .form-field-row { display: flex; align-items: flex-start; gap: 14px; }
-    .form-field-label { flex: 0 0 150px; padding-top: 5px; }
-    .form-field-name { font-size: 12px; font-weight: 500; }
-    .form-field-desc { font-size: 11px; color: var(--text-tertiary); line-height: 1.4; }
-    .form-field-control { flex: 1; min-width: 0; }
-    .text-input, .number-input, .select-input {
-      width: 100%; padding: 6px 10px; background: var(--bg-primary);
-      border: 1px solid var(--border-default); border-radius: var(--radius-md); font-size: 12px; outline: none;
-      transition: all var(--transition-fast); color: var(--text-primary);
-    }
-    .text-input:focus, .number-input:focus, .select-input:focus {
-      border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-muted);
-    }
-    .select-input { cursor: pointer; appearance: none; padding-right: 26px;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%236e7681' d='M5 6L0 0h10z'/%3E%3C/svg%3E");
-      background-repeat: no-repeat; background-position: right 10px center; }
-    .field-error { color: var(--error); font-size: 11px; margin-top: 4px; }
-    .toggle-switch { position: relative; width: 36px; height: 20px; background: var(--bg-quaternary);
-      border-radius: 10px; cursor: pointer; transition: all var(--transition-fast); flex-shrink: 0; }
-    .toggle-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
-      background: #fff; border-radius: 50%; transition: all var(--transition-fast); }
-    .toggle-switch.active { background: var(--accent); }
-    .toggle-switch.active::after { left: 18px; }
-    .array-item { border: 1px solid var(--border-default); border-radius: var(--radius-md);
-      margin: 8px 0; background: var(--bg-primary); }
-    .array-item-head { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; user-select: none; }
-    .array-item-head .title { flex: 1; font-size: 12px; color: var(--text-secondary); }
-    .array-item-body { padding: 2px 12px 10px; border-top: 1px solid var(--border-default); }
-    .array-item.collapsed .array-item-body { display: none; }
-    .array-add-btn {
-      display: flex; align-items: center; gap: 6px; padding: 6px 10px; margin-top: 6px; width: fit-content;
-      color: var(--text-tertiary); border: 1px dashed var(--border-hover); border-radius: var(--radius-md);
-      font-size: 12px; transition: all var(--transition-fast);
-    }
-    .array-add-btn:hover { color: var(--accent); border-color: var(--accent-border); background: var(--accent-muted); }
-
-    /* ===== 右侧预览 ===== */
-    .preview-wrap { position: relative; display: flex; }
-    .preview-resizer { width: 4px; cursor: col-resize; background: transparent; flex-shrink: 0; }
-    .preview-resizer:hover { background: var(--accent); }
-    .preview-panel {
-      width: var(--preview-width); min-width: 320px; max-width: 60vw; display: flex; flex-direction: column;
-      background: var(--bg-secondary); border-left: 1px solid var(--border-default); flex-shrink: 0;
-    }
-    .preview-tabs { display: flex; background: var(--bg-secondary); border-bottom: 1px solid var(--border-default); flex-shrink: 0; }
-    .preview-tab { padding: 8px 14px; font-size: 12px; color: var(--text-secondary); border-bottom: 2px solid transparent;
-      transition: all var(--transition-fast); }
-    .preview-tab:hover { color: var(--text-primary); }
-    .preview-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-    .preview-pane { flex: 1; overflow: auto; position: relative; }
-    .preview-pane.hidden { display: none; }
-    .preview-code { margin: 0; padding: 12px; white-space: pre; font-family: var(--mono); font-size: 12px; line-height: 1.5; }
-    .source-editor { width: 100%; height: 100%; resize: none; border: none; outline: none; padding: 12px;
-      background: var(--bg-primary); font-family: var(--mono); font-size: 12px; line-height: 1.5; }
-    .preview-tools { display: flex; gap: 6px; padding: 8px; flex-wrap: wrap; border-top: 1px solid var(--border-default); flex-shrink: 0; }
-    .preview-tools input.input { flex: 1; min-width: 140px; }
-    .kw-comment { color: #8b949e; font-style: italic; }
-    .kw-block { color: #ff7b72; }
-    .kw-directive { color: #79c0ff; }
-    .kw-number { color: #d2a8ff; }
-    .kw-string { color: #a5d6ff; }
-
-    /* ===== 模板弹窗 ===== */
-    .modal-overlay { position: fixed; inset: 0; background: rgba(1,4,9,.7); display: flex; align-items: center;
-      justify-content: center; opacity: 0; visibility: hidden; transition: all var(--transition-normal); z-index: 500; }
-    .modal-overlay.open { opacity: 1; visibility: visible; }
-    .modal { width: 640px; max-width: 90vw; max-height: 80vh; overflow: auto; background: var(--bg-secondary);
-      border: 1px solid var(--border-default); border-radius: var(--radius-lg); padding: 18px; }
-    .modal h2 { font-size: 15px; margin-bottom: 4px; }
-    .modal p.sub { font-size: 12px; color: var(--text-tertiary); margin-bottom: 12px; }
-    .template-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .template-card { border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: 12px; cursor: pointer;
-      transition: all var(--transition-fast); background: var(--bg-tertiary); }
-    .template-card:hover { border-color: var(--accent); }
-    .template-card.selected { border-color: var(--accent); background: var(--accent-muted); }
-    .template-card h3 { font-size: 13px; margin-bottom: 3px; }
-    .template-card p { font-size: 11px; color: var(--text-tertiary); }
-    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
-
-    /* ===== 状态栏 ===== */
-    .statusbar {
-      height: var(--statusbar-height); display: flex; align-items: center; gap: 16px; padding: 0 12px;
-      background: var(--bg-secondary); border-top: 1px solid var(--border-default); font-size: 11px;
-      color: var(--text-tertiary); flex-shrink: 0;
-    }
-    .statusbar .ok { color: var(--success); }
-    .statusbar .bad { color: var(--error); }
-    .statusbar .spacer { flex: 1; }
-    .statusbar .btn { padding: 2px 8px; font-size: 11px; }
-
-    /* ===== Toast ===== */
-    .toast {
-      position: fixed; bottom: 48px; left: 50%; transform: translateX(-50%) translateY(20px);
-      background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-default);
-      border-radius: var(--radius-md); padding: 8px 16px; font-size: 12px; opacity: 0; visibility: hidden;
-      transition: all var(--transition-normal); z-index: 600; max-width: 70vw;
-    }
-    .toast.show { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
-  </style>
+/* ===== Toast ===== */
+.toast{position:fixed;bottom:50px;left:50%;transform:translateX(-50%) translateY(20px);background:#303030;color:#eee;border:1px solid #555;border-radius:10px;padding:9px 18px;font-size:13px;opacity:0;visibility:hidden;transition:all .2s;z-index:20;max-width:70vw}
+.toast.show{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0)}
+</style>
 </head>
 <body>
-  <div class="app">
-    <header class="toolbar">
-      <div class="app-logo"><span class="app-logo-icon">F</span><span class="app-logo-text">Ferry</span></div>
-      <select id="workspaceSelect" class="input" style="min-width:130px" title="工作空间"></select>
-      <button id="btnNewWs" class="toolbar-btn">＋ 新建</button>
-      <button id="btnRenameWs" class="toolbar-btn">重命名</button>
-      <button id="btnDeleteWs" class="toolbar-btn danger">删除</button>
-      <span class="toolbar-divider"></span>
-      <button id="btnTemplates" class="toolbar-btn">⚡ 模板</button>
-      <button id="btnReset" class="toolbar-btn" title="清空当前配置并恢复默认值">清空配置</button>
-      <span class="toolbar-spacer"></span>
-      <button id="btnValidate" class="toolbar-btn">校验</button>
-      <button id="btnPreview" class="toolbar-btn primary">生成预览</button>
-      <button id="btnLogs" class="toolbar-btn" title="打开日志">📋 日志</button>
-    </header>
+<div class="app">
 
-    <div class="main-content">
-      <aside class="sidebar">
-        <nav class="sidebar-tabs">
-          <button class="sidebar-tab active" data-tab="configs">配置</button>
-          <button class="sidebar-tab" data-tab="modules">模块</button>
-          <button class="sidebar-tab" data-tab="versions">版本</button>
-          <button class="sidebar-tab" data-tab="archive">存档</button>
-        </nav>
-        <div class="sidebar-body">
-          <section id="tab-configs">
-            <div class="sidebar-section-title">配置列表</div>
-            <div id="configList"><span class="hint">请选择工作空间</span></div>
-            <div class="row" style="margin-top:10px">
-              <select id="newConfigPlugin" class="input"></select>
-            </div>
-            <div class="row">
-              <input id="newConfigName" class="input" type="text" placeholder="配置名（默认=插件文件名）" />
-              <button id="btnNewConfig" class="btn primary">新建</button>
-            </div>
-          </section>
-          <section id="tab-modules" hidden>
-            <div class="sidebar-section-title">模块树</div>
-            <div class="module-search"><input id="moduleSearch" type="text" placeholder="搜索模块…" /></div>
-            <div id="moduleTree"><span class="hint">打开配置后显示模块树</span></div>
-          </section>
-          <section id="tab-versions" hidden>
-            <div class="sidebar-section-title">版本历史</div>
-            <div class="row">
-              <input id="versionNote" class="input" type="text" placeholder="留档备注（可选）" />
-              <button id="btnSnapshot" class="btn primary">留档</button>
-            </div>
-            <div id="versionList"><span class="hint">打开配置后可留档</span></div>
-          </section>
-          <section id="tab-archive" hidden>
-            <div class="sidebar-section-title">存档包</div>
-            <input id="archivePath" class="input" style="width:100%" type="text" placeholder="zip 路径（导出/导入）" />
-            <div class="row" style="margin-top:8px">
-              <button id="btnExportWs" class="btn">导出工作空间</button>
-              <button id="btnExportCfg" class="btn">导出配置</button>
-              <button id="btnImportArchive" class="btn">导入</button>
-            </div>
-            <div id="archiveResult" class="report"></div>
-            <div class="sidebar-section-title">日志</div>
-            <div id="logPath" class="report"></div>
-          </section>
-        </div>
-      </aside>
+  <aside class="sidebar">
+    <div class="logo">Ferry</div>
+    <select class="project" id="workspaceSelect" title="工作空间"></select>
+    <div class="btn" id="btnNewConfig">＋ 新建配置</div>
+    <div class="section">配置</div>
+    <div id="configTree"><span style="color:#999;font-size:13px">加载中…</span></div>
+    <div class="spacer"></div>
+    <div class="setting" id="btnSettings">⚙ 设置</div>
+  </aside>
 
-      <section class="form-editor">
-        <div class="breadcrumbs">
-          <span class="crumb">工作空间</span>
-          <span id="crumbWs" class="crumb current">—</span>
-          <span id="crumbConfig" class="crumb">（未打开配置）</span>
-        </div>
-        <div class="form-scroll">
-          <div class="form-container">
-            <div class="form-page-title">
-              <h1 id="formTitle">Ferry</h1>
-              <p id="formSubtitle">从左侧选择配置开始编辑</p>
-            </div>
-            <div id="formRoot"></div>
+  <div class="main">
+    <div class="top">
+      <span class="title" id="topTitle">Ferry</span>
+      <button class="topBtn" id="btnTemplates" title="为当前配置应用场景模板">⚡ 模板</button>
+      <button class="topBtn" id="btnVersions" title="版本留档与回滚">🕘 版本</button>
+      <button class="topBtn" id="btnArchive" title="存档包导出/导入">🗜 存档</button>
+      <button class="topBtn danger" id="btnReset" title="清空当前配置并恢复默认值">清空</button>
+      <button class="topBtn" id="btnValidate">校验</button>
+      <button class="topBtn primary" id="btnSource">源码</button>
+    </div>
+
+    <div class="content">
+      <div class="editor">
+        <div class="editor-head">
+          <h2 id="formTitle">Ferry</h2>
+          <p id="formSubtitle">从左侧选择配置开始编辑</p>
+          <div class="editor-tools">
+            <button class="btn small" id="btnCollapseAll">折叠全部</button>
+            <button class="btn small" id="btnExpandAll">展开全部</button>
+            <button class="btn small" id="btnCollapseDisabled">仅折叠未启用</button>
           </div>
         </div>
-      </section>
+        <div id="formRoot"></div>
+      </div>
 
-      <div class="preview-wrap">
-        <div class="preview-resizer" id="previewResizer"></div>
-        <aside class="preview-panel" id="previewPanel">
-          <div class="preview-tabs">
-            <button class="preview-tab active" data-tab="preview">预览</button>
-            <button class="preview-tab" data-tab="source">源码编辑</button>
-          </div>
-          <div class="preview-pane" id="pane-preview"><pre class="preview-code" id="previewCode"></pre></div>
-          <div class="preview-pane hidden" id="pane-source"><textarea class="source-editor" id="sourceEditor" spellcheck="false"></textarea></div>
-          <div class="preview-tools">
-            <button id="btnApplyEdit" class="btn primary">应用修改（回填表单）</button>
-            <input id="importFile" type="file" hidden />
-            <button id="btnImportFile" class="btn">导入文件</button>
-            <input id="exportPath" class="input" type="text" placeholder="导出文件路径" />
-            <button id="btnExport" class="btn">导出</button>
-            <span id="unrecognizedReport" class="report" style="width:100%"></span>
-          </div>
-        </aside>
+      <div class="source" id="sourcePanel">
+        <div class="source-head">
+          <span class="name" id="sourceName">nginx.conf</span>
+          <span class="acts">
+            <span id="btnSourceFull" title="全屏/还原">⛶</span>
+            <span id="btnSourceClose" title="关闭">×</span>
+          </span>
+        </div>
+        <div class="source-tabs">
+          <span class="source-tab active" data-tab="preview">预览</span>
+          <span class="source-tab" data-tab="edit">编辑</span>
+        </div>
+        <pre class="code" id="previewCode"></pre>
+        <textarea class="editor-ta" id="sourceEditor" style="display:none" spellcheck="false"></textarea>
+        <div class="source-tools">
+          <button class="btn small primary" id="btnApplyEdit">应用修改（回填表单）</button>
+          <button class="btn small" id="btnImportFile">导入文件</button>
+          <input id="importFile" type="file" style="display:none" />
+          <input type="text" id="exportPath" placeholder="导出文件路径" />
+          <button class="btn small" id="btnExport">导出</button>
+          <span class="report" id="unrecognizedReport"></span>
+        </div>
       </div>
     </div>
 
@@ -407,19 +241,94 @@
       <span id="latency"></span>
     </footer>
   </div>
+</div>
 
-  <div class="modal-overlay" id="templateModal">
-    <div class="modal">
-      <h2>快速模板</h2>
-      <p class="sub">选择场景模板应用到当前配置（将覆盖当前表单内容）</p>
-      <div class="template-grid" id="templateGrid"></div>
-      <div class="modal-actions">
-        <button class="btn" id="btnTemplateCancel">取消</button>
-        <button class="btn primary" id="btnTemplateApply">应用</button>
+<!-- 新建配置向导 -->
+<div class="modal" id="wizardModal">
+  <div class="window">
+    <div class="step active" id="wz1">
+      <h2>选择插件</h2>
+      <p class="sub">选择要创建配置的能力</p>
+      <input class="search" id="wzPluginSearch" placeholder="搜索插件…" />
+      <div id="wzPluginList"></div>
+    </div>
+    <div class="step" id="wz2">
+      <h2>选择模板</h2>
+      <p class="sub">模板由插件定义；不选择则使用空白默认配置</p>
+      <div id="wzTemplateList"></div>
+    </div>
+    <div class="step" id="wz3">
+      <h2>配置信息</h2>
+      <p class="sub">名称和工作空间均可留空，由默认规则补充</p>
+      <div class="field-label">名称</div>
+      <input type="text" id="wzName" placeholder="默认名称（如 nginx.conf）" />
+      <div class="field-label">工作空间</div>
+      <select class="project" id="wzWorkspace" style="width:100%;margin-top:6px"></select>
+      <div class="footer">
+        <button class="btn" id="wzBack" style="display:none">上一步</button>
+        <button class="btn" id="wzCancel">取消</button>
+        <button class="btn primary" id="wzCreate" style="display:none">创建</button>
       </div>
     </div>
   </div>
-  <div class="toast" id="toast"></div>
-  <script src="app.js"></script>
+</div>
+
+<!-- 模板应用 -->
+<div class="modal" id="templateModal">
+  <div class="window">
+    <h2>快速模板</h2>
+    <p class="sub">应用到当前配置（将覆盖当前表单内容）</p>
+    <div id="templateList"></div>
+    <div class="footer">
+      <button class="btn" id="btnTemplateCancel">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 版本 -->
+<div class="modal" id="versionsModal">
+  <div class="window">
+    <h2>版本历史</h2>
+    <p class="sub">留档当前配置源码，可随时回滚</p>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="versionNote" placeholder="留档备注（可选）" />
+      <button class="btn primary" id="btnSnapshot" style="margin:0">留档</button>
+    </div>
+    <div id="versionList"></div>
+  </div>
+</div>
+
+<!-- 存档 -->
+<div class="modal" id="archiveModal">
+  <div class="window">
+    <h2>存档包</h2>
+    <p class="sub">导出/导入包含插件定义与版本历史的 zip 包</p>
+    <div class="field-label">zip 路径</div>
+    <input type="text" id="archivePath" placeholder="C:\path\to\archive.zip" />
+    <div class="footer" style="justify-content:flex-start">
+      <button class="btn" id="btnExportWs">导出工作空间</button>
+      <button class="btn" id="btnExportCfg">导出配置</button>
+      <button class="btn primary" id="btnImportArchive">导入</button>
+    </div>
+    <div id="archiveResult" style="color:#999;font-size:12px;margin-top:10px"></div>
+  </div>
+</div>
+
+<!-- 设置 -->
+<div class="modal" id="settingsModal">
+  <div class="window">
+    <h2>设置</h2>
+    <p class="sub">日志与诊断信息</p>
+    <div class="field-label">日志文件</div>
+    <div id="settingsLogPath" style="color:#999;font-size:12px;word-break:break-all"></div>
+    <div class="footer">
+      <button class="btn" id="btnOpenLogs">打开日志</button>
+      <button class="btn" id="btnSettingsClose">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="app.js"></script>
 </body>
 </html>

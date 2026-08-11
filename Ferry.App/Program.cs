@@ -623,7 +623,13 @@ public static class Program
         canImport = plugin.CanImport,
         targetName = plugin.TargetName,
         targetVersion = plugin.TargetVersion,
-        loadErrors = plugin.LoadErrors
+        loadErrors = plugin.LoadErrors,
+        templates = plugin.Templates.Select(t => new
+        {
+            id = t.Id,
+            name = t.Name,
+            description = t.Description
+        })
     };
 
     private static object? ConvertValue(JsonNode? node) => node switch
