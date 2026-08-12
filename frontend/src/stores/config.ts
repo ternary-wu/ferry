@@ -2,6 +2,8 @@ import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 import { getIpc } from '../ipc';
 import type { ConfigMeta, FormFieldSnapshot, PluginTemplateDto } from '../ipc/types';
+import type { FieldFilter } from '../utils/fieldTree';
+import { collectCollapsiblePaths } from '../utils/fieldTree';
 
 export const useConfigStore = defineStore('config', () => {
   const current = ref<ConfigMeta | null>(null);
@@ -13,6 +15,9 @@ export const useConfigStore = defineStore('config', () => {
   const versionChanged = ref(false);
   const pluginMissing = ref(false);
   const templates = ref<PluginTemplateDto[]>([]);
+  const filter = ref<FieldFilter>('all');
+  const search = ref('');
+  const collapsed = ref<Record<string, boolean>>({});
 
   const isOpen = computed(() => current.value !== null);
 
@@ -27,6 +32,8 @@ export const useConfigStore = defineStore('config', () => {
     versionChanged.value = res.versionChanged ?? false;
     pluginMissing.value = res.pluginMissing ?? false;
     templates.value = res.templates ?? [];
+    search.value = '';
+    seedCollapsed();
     return res;
   }
 
@@ -40,22 +47,80 @@ export const useConfigStore = defineStore('config', () => {
     versionChanged.value = false;
     pluginMissing.value = false;
     templates.value = [];
+    search.value = '';
+    collapsed.value = {};
+  }
+
+  function seedCollapsed() {
+    const map: Record<string, boolean> = {};
+    for (const path of collectCollapsiblePaths(snapshot.value)) {
+      map[path] = true;
+    }
+    collapsed.value = map;
+  }
+
+  function toggleCollapsed(path: string) {
+    collapsed.value = { ...collapsed.value, [path]: !collapsed.value[path] };
+  }
+
+  function collapseAll() {
+    const map: Record<string, boolean> = {};
+    for (const path of collectCollapsiblePaths(snapshot.value)) {
+      map[path] = true;
+    }
+    collapsed.value = map;
+  }
+
+  function expandAll() {
+    collapsed.value = {};
   }
 
   function applyFormResult(data: {
     snapshot: FormFieldSnapshot[];
-    sourceText?: string | null;
+    text?: string | null;
     errors: string[];
     unrecognized?: string[];
   }) {
     snapshot.value = data.snapshot;
-    if (data.sourceText !== undefined && data.sourceText !== null) {
-      sourceText.value = data.sourceText;
+    if (data.text !== undefined && data.text !== null) {
+      sourceText.value = data.text;
     }
     errors.value = data.errors;
     if (data.unrecognized) {
       unrecognized.value = data.unrecognized;
     }
+  }
+
+  async function setValue(path: string, value: unknown) {
+    const res = await getIpc().send('form:setValue', { path, value });
+    if (res.ok) {
+      applyFormResult(res);
+    }
+    return res;
+  }
+
+  async function toggle(path: string, enabled?: boolean) {
+    const res = await getIpc().send('form:toggle', { path, enabled });
+    if (res.ok) {
+      applyFormResult(res);
+    }
+    return res;
+  }
+
+  async function addItem(path: string) {
+    const res = await getIpc().send('form:addItem', { path });
+    if (res.ok) {
+      applyFormResult(res);
+    }
+    return res;
+  }
+
+  async function removeItem(path: string) {
+    const res = await getIpc().send('form:removeItem', { path });
+    if (res.ok) {
+      applyFormResult(res);
+    }
+    return res;
   }
 
   return {
@@ -68,9 +133,20 @@ export const useConfigStore = defineStore('config', () => {
     versionChanged,
     pluginMissing,
     templates,
+    filter,
+    search,
+    collapsed,
     isOpen,
     open,
     close,
-    applyFormResult
+    applyFormResult,
+    seedCollapsed,
+    toggleCollapsed,
+    collapseAll,
+    expandAll,
+    setValue,
+    toggle,
+    addItem,
+    removeItem
   };
 });

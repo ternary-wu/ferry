@@ -543,3 +543,185 @@ textarea {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ===== Config Editor ===== */
+.ferry-btn.small {
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.ferry-field-tool {
+  background: var(--ferry-surface);
+  border: 1px solid #555;
+  color: var(--ferry-text);
+  padding: 5px 10px;
+  border-radius: 8px;
+  outline: none;
+  font-size: 12px;
+}
+
+.ferry-field-tool:focus {
+  border-color: var(--ferry-primary);
+}
+
+.ferry-field-search {
+  width: 200px;
+}
+
+.ferry-field-row {
+  border-bottom: 1px solid #2e2e2e;
+}
+
+.ferry-field-row.disabled {
+  opacity: 0.5;
+}
+
+.ferry-field-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 6px;
+  min-height: 34px;
+}
+
+.ferry-field-head:hover {
+  background: #262626;
+}
+
+.ferry-field-arrow {
+  width: 14px;
+  color: var(--ferry-text-dim);
+  font-size: 11px;
+  text-align: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ferry-field-check {
+  width: 18px;
+  font-size: 13px;
+  color: #ddd;
+  cursor: pointer;
+  flex-shrink: 0;
+  text-align: center;
+  user-select: none;
+}
+
+.ferry-field-check.checked {
+  color: var(--ferry-primary);
+}
+
+.ferry-field-check.lock {
+  color: var(--ferry-text-dim);
+  cursor: default;
+  font-size: 11px;
+}
+
+.ferry-field-label {
+  flex: 0 0 160px;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ferry-field-count {
+  font-size: 11px;
+  color: var(--ferry-text-dim);
+  background: #2a2a2a;
+  padding: 0 7px;
+  border-radius: 10px;
+}
+
+.ferry-field-add {
+  color: var(--ferry-text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px dashed #555;
+  border-radius: 8px;
+  padding: 3px 8px;
+  margin-left: auto;
+}
+
+.ferry-field-add:hover {
+  color: var(--ferry-primary);
+  border-color: var(--ferry-primary);
+}
+
+.ferry-field-remove {
+  color: var(--ferry-text-dim);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.ferry-field-remove:hover {
+  color: var(--ferry-danger);
+  background: rgba(248, 81, 73, 0.12);
+}
+
+.ferry-field-children {
+  padding-left: 22px;
+}
+
+.ferry-field-control {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.ferry-field-input {
+  background: var(--ferry-surface);
+  border: 1px solid #555;
+  color: var(--ferry-text);
+  padding: 5px 8px;
+  border-radius: 8px;
+  outline: none;
+  font-size: 12px;
+  max-width: 220px;
+}
+
+.ferry-field-input:focus {
+  border-color: var(--ferry-primary);
+}
+
+.ferry-toggle {
+  width: 34px;
+  height: 18px;
+  background: #3a3a3a;
+  border-radius: 9px;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.ferry-toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: #ddd;
+  border-radius: 50%;
+  transition: left 0.12s;
+}
+
+.ferry-toggle.active {
+  background: var(--ferry-primary);
+}
+
+.ferry-toggle.active::after {
+  left: 18px;
+}
+
+.ferry-field-error {
+  color: var(--ferry-danger);
+  font-size: 11px;
+  padding: 0 6px 4px;
+}
