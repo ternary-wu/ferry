@@ -136,9 +136,12 @@ public static class Program
                 "config:open" => ConfigOpen(ctx, request!),
                 "config:delete" => ConfigDelete(ctx, request!),
                 "config:move" => ConfigMove(ctx, request!),
+                "config:reorder" => ConfigReorder(ctx, request!),
                 "config:reset" => ConfigReset(ctx, request!),
                 "config:saveSource" => ConfigSaveSource(ctx, request!),
                 "config:exportTo" => ConfigExportTo(ctx, request!),
+                "settings:get" => SettingsGet(ctx),
+                "settings:save" => SettingsSave(ctx, request!),
                 "form:snapshot" => FormResult(ctx, new SnapshotCommand()),
                 "form:validate" => FormResult(ctx, new ValidateCommand()),
                 "form:render" => FormResult(ctx, new RenderCommand()),
@@ -391,6 +394,28 @@ public static class Program
             request["configId"]!.GetValue<string>(),
             request["workspaceId"]?.GetValue<string>() ?? string.Empty);
         return Ok(new JsonObject { ["configId"] = config.Id });
+    }
+
+    private static JsonObject ConfigReorder(HostContext ctx, JsonObject request)
+    {
+        var workspaceId = request["workspaceId"]!.GetValue<string>();
+        var configIds = (request["configIds"] as JsonArray)
+            ?.Select(n => n!.GetValue<string>())
+            .ToList()
+            ?? throw new InvalidOperationException("未指定 configIds");
+        ctx.Workspaces.ReorderConfigs(workspaceId, configIds);
+        return Ok();
+    }
+
+    private static JsonObject SettingsGet(HostContext ctx)
+        => Ok(new JsonObject { ["settings"] = Node(ctx.Workspaces.LoadSettings()) });
+
+    private static JsonObject SettingsSave(HostContext ctx, JsonObject request)
+    {
+        var settings = request["settings"] as JsonObject
+            ?? throw new InvalidOperationException("未指定 settings 对象");
+        ctx.Workspaces.SaveSettings(ConfigImporter.FromJsonObject(settings));
+        return Ok(new JsonObject { ["settings"] = Node(ctx.Workspaces.LoadSettings()) });
     }
 
     private static JsonObject ConfigOpen(HostContext ctx, JsonObject request)

@@ -50,7 +50,12 @@ public sealed class PortableArchiveService
             File.Delete(zipPath);
         }
         using var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create);
-        WriteManifest(zip, project, workspace, configs);
+        WriteManifest(
+            zip,
+            project,
+            workspace,
+            configs,
+            _service.ListConfigs(workspaceId).Select(c => c.Id).ToArray());
         foreach (var info in configs)
         {
             var config = _service.LoadConfig(workspaceId, info.Id);
@@ -75,7 +80,11 @@ public sealed class PortableArchiveService
             File.Delete(zipPath);
         }
         using var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create);
-        WriteManifest(zip, project, workspace, _service.ListConfigs(workspaceId).Where(c => c.Id == configId).ToList());
+        WriteManifest(
+            zip,
+            project,
+            workspace,
+            _service.ListConfigs(workspaceId).Where(c => c.Id == configId).ToList());
         WriteConfig(zip, workspace, config);
         WritePlugin(zip, WorkspaceService.ResolvePlugin(_plugins, config));
     }
@@ -97,6 +106,7 @@ public sealed class PortableArchiveService
                 ?? _service.CreateProject(projectName);
 
             var entries = manifest?["entries"] as JsonArray ?? new JsonArray();
+            var configIdMap = new Dictionary<string, string>();
             foreach (var entryNode in entries)
             {
                 var configId = entryNode?["configId"]?.GetValue<string>();
@@ -177,7 +187,20 @@ public sealed class PortableArchiveService
                     config.VersionId = last.Id;
                     _service.SaveConfig(config);
                 }
+                configIdMap[configId] = config.Id;
                 result.ImportedConfigs++;
+            }
+
+            var configOrder = manifest?["configOrder"] as JsonArray;
+            if (configOrder is not null && result.WorkspaceId is not null)
+            {
+                var ordered = configOrder
+                    .Select(n => n?.GetValue<string>() ?? string.Empty)
+                    .Where(s => !string.IsNullOrEmpty(s))
+                    .Where(configIdMap.ContainsKey)
+                    .Select(s => configIdMap[s])
+                    .ToList();
+                _service.ApplyConfigOrder(result.WorkspaceId, ordered);
             }
 
             return result;
@@ -231,7 +254,8 @@ public sealed class PortableArchiveService
         ZipArchive zip,
         ProjectInfo? project,
         WorkspaceInfo workspace,
-        IReadOnlyList<ConfigInfo> configs)
+        IReadOnlyList<ConfigInfo> configs,
+        IReadOnlyList<string>? configOrder = null)
     {
         var entries = configs
             .Select(info => (JsonNode)new JsonObject
@@ -253,6 +277,11 @@ public sealed class PortableArchiveService
             ["workspaceName"] = workspace.Name,
             ["entries"] = new JsonArray(entries)
         };
+        if (configOrder is not null)
+        {
+            manifest["configOrder"] = new JsonArray(
+                configOrder.Select(id => (JsonNode)id).ToArray());
+        }
         var entry = zip.CreateEntry("manifest.json");
         using var writer = new StreamWriter(entry.Open());
         writer.Write(manifest.ToJsonString(JsonOptions));

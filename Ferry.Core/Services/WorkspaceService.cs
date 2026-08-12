@@ -132,9 +132,7 @@ public sealed class WorkspaceService
 
     /// <summary>未归类配置（不属于任何工作空间）。</summary>
     public IReadOnlyList<ConfigInfo> ListUnassignedConfigs(string projectId)
-        => _store.ListConfigs(string.Empty)
-            .Where(c => c.WorkspaceId == string.Empty)
-            .ToList();
+        => ListConfigs(string.Empty);
 
     /// <summary>移动配置到目标工作空间（空字符串 = 未归类）。</summary>
     public ConfigData MoveConfig(string configId, string targetWorkspaceId)
@@ -159,8 +157,55 @@ public sealed class WorkspaceService
     public void DeleteConfig(string workspaceId, string configId)
         => _store.DeleteConfig(workspaceId, configId);
 
+    /// <summary>按存储顺序返回工作空间配置（顺序由 SaveConfigOrder/ReorderConfigs 维护）。</summary>
     public IReadOnlyList<ConfigInfo> ListConfigs(string workspaceId)
-        => _store.ListConfigs(workspaceId);
+    {
+        var infos = _store.ListConfigs(workspaceId);
+        var order = _store.GetConfigOrder(workspaceId);
+        var orderIndex = new Dictionary<string, int>();
+        for (var i = 0; i < order.Count; i++)
+        {
+            orderIndex[order[i]] = i;
+        }
+        return infos
+            .OrderBy(info => orderIndex.TryGetValue(info.Id, out var index) ? index : int.MaxValue)
+            .ToList();
+    }
+
+    /// <summary>
+    /// 保存工作空间配置排序（IPC 严格入口）：列表必须恰好包含该工作空间全部配置且不重复。
+    /// </summary>
+    public void ReorderConfigs(string workspaceId, IReadOnlyList<string> configIds)
+    {
+        var existing = _store.ListConfigs(workspaceId)
+            .Select(c => c.Id)
+            .ToHashSet();
+        var distinct = configIds.Distinct().ToList();
+        if (distinct.Count != configIds.Count
+            || distinct.Count != existing.Count
+            || distinct.Any(id => !existing.Contains(id)))
+        {
+            throw new InvalidOperationException(
+                "排序列表必须包含该工作空间全部配置且不重复");
+        }
+        _store.SaveConfigOrder(workspaceId, distinct);
+    }
+
+    /// <summary>
+    /// 宽容应用排序（存档导入等场景）：只保留已存在配置的相对顺序，其余配置追加末尾。
+    /// </summary>
+    public void ApplyConfigOrder(string workspaceId, IReadOnlyList<string> orderedIds)
+    {
+        var existingIds = _store.ListConfigs(workspaceId)
+            .Select(c => c.Id)
+            .ToHashSet();
+        var merged = orderedIds
+            .Where(existingIds.Contains)
+            .Distinct()
+            .ToList();
+        merged.AddRange(existingIds.Where(id => !merged.Contains(id)));
+        _store.SaveConfigOrder(workspaceId, merged);
+    }
 
     /// <summary>留档：把当前配置源码保存为版本快照，成为当前版本。</summary>
     public VersionSnapshot SnapshotVersion(ConfigData config, string? note = null)
@@ -202,6 +247,11 @@ public sealed class WorkspaceService
 
     public void DeleteVersion(string workspaceId, string configId, string versionId)
         => _store.DeleteVersion(workspaceId, configId, versionId);
+
+    public Dictionary<string, object?> LoadSettings() => _store.LoadSettings();
+
+    public void SaveSettings(Dictionary<string, object?> settings)
+        => _store.SaveSettings(settings);
 
     /// <summary>
     /// 按 PluginKey 在已加载插件中匹配配置绑定的插件（插件缺失返回 null，

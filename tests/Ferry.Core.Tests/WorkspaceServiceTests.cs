@@ -94,6 +94,61 @@ public class WorkspaceServiceTests : IDisposable
     }
 
     [Fact]
+    public void ReorderConfigs_PersistsOrder_And_ListReturnsInOrder()
+    {
+        var project = NewProject();
+        var ws = _service.CreateWorkspace(project.Id, "生产环境");
+        var nginx = LoadNginx();
+        var a = _service.CreateConfig(project.Id, ws.Id, nginx, name: "a.conf");
+        var b = _service.CreateConfig(project.Id, ws.Id, nginx, name: "b.conf");
+        var c = _service.CreateConfig(project.Id, ws.Id, nginx, name: "c.conf");
+
+        _service.ReorderConfigs(ws.Id, new[] { c.Id, a.Id, b.Id });
+
+        Assert.Equal(new[] { c.Id, a.Id, b.Id }, _service.ListConfigs(ws.Id).Select(x => x.Id));
+    }
+
+    [Fact]
+    public void ReorderConfigs_RejectsMissingExtraOrDuplicateIds()
+    {
+        var project = NewProject();
+        var ws = _service.CreateWorkspace(project.Id, "生产环境");
+        var nginx = LoadNginx();
+        var a = _service.CreateConfig(project.Id, ws.Id, nginx, name: "a.conf");
+        var b = _service.CreateConfig(project.Id, ws.Id, nginx, name: "b.conf");
+
+        Assert.Throws<InvalidOperationException>(() =>
+            _service.ReorderConfigs(ws.Id, new[] { a.Id }));
+        Assert.Throws<InvalidOperationException>(() =>
+            _service.ReorderConfigs(ws.Id, new[] { a.Id, b.Id, "unknown" }));
+        Assert.Throws<InvalidOperationException>(() =>
+            _service.ReorderConfigs(ws.Id, new[] { a.Id, a.Id, b.Id }));
+    }
+
+    [Fact]
+    public void MoveConfig_RemovesFromSourceOrder_And_AppendsToTargetOrder()
+    {
+        var project = NewProject();
+        var wsA = _service.CreateWorkspace(project.Id, "A");
+        var wsB = _service.CreateWorkspace(project.Id, "B");
+        var nginx = LoadNginx();
+        var a = _service.CreateConfig(project.Id, wsA.Id, nginx, name: "a.conf");
+        var b = _service.CreateConfig(project.Id, wsA.Id, nginx, name: "b.conf");
+
+        _service.MoveConfig(a.Id, wsB.Id);
+
+        Assert.Equal(new[] { b.Id }, _service.ListConfigs(wsA.Id).Select(x => x.Id));
+        Assert.Equal(new[] { a.Id }, _service.ListConfigs(wsB.Id).Select(x => x.Id));
+    }
+
+    [Fact]
+    public void Settings_RoundTrip_ThroughService()
+    {
+        _service.SaveSettings(new Dictionary<string, object?> { ["theme"] = "dark" });
+        Assert.Equal("dark", _service.LoadSettings()["theme"]);
+    }
+
+    [Fact]
     public void EnsureDefaultProject_MigratesLegacyWorkspaces()
     {
         var now = DateTimeOffset.Now;

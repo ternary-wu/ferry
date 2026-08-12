@@ -90,6 +90,7 @@ public sealed class LocalWorkspaceStore : IWorkspaceStore
                 {
                     var wsId = ws!["id"]!.GetValue<string>();
                     workspaces.Remove(ws);
+                    (root["configOrder"] as JsonObject)?.Remove(wsId);
                     if (configs is not null && configs[wsId] is JsonArray configArray)
                     {
                         foreach (var configNode in configArray)
@@ -173,6 +174,7 @@ public sealed class LocalWorkspaceStore : IWorkspaceStore
                 }
                 configs.Remove(workspaceId);
             }
+            (root["configOrder"] as JsonObject)?.Remove(workspaceId);
             Save(root);
         }
     }
@@ -213,6 +215,7 @@ public sealed class LocalWorkspaceStore : IWorkspaceStore
             array.Add(ToConfigNode(config));
             configs[config.WorkspaceId] = array;
             root["configs"] = configs;
+            EnsureConfigOrderEntry(root, config.WorkspaceId, config.Id);
             Save(root);
         }
     }
@@ -230,6 +233,7 @@ public sealed class LocalWorkspaceStore : IWorkspaceStore
                 array!.Remove(existing);
             }
             (root["versions"] as JsonObject)?.Remove(configId);
+            RemoveConfigOrderEntry(root, workspaceId, configId);
             Save(root);
         }
     }
@@ -246,6 +250,7 @@ public sealed class LocalWorkspaceStore : IWorkspaceStore
             {
                 array!.Remove(existing);
             }
+            RemoveConfigOrderEntry(root, workspaceId, configId);
             Save(root);
         }
     }
@@ -311,6 +316,68 @@ public sealed class LocalWorkspaceStore : IWorkspaceStore
             {
                 array!.Remove(existing);
             }
+            Save(root);
+        }
+    }
+
+    public IReadOnlyList<string> GetConfigOrder(string workspaceId)
+    {
+        lock (_sync)
+        {
+            var root = LoadRoot();
+            var map = root["configOrder"] as JsonObject;
+            var array = map?[workspaceId] as JsonArray ?? new JsonArray();
+            return array
+                .Select(n => n?.GetValue<string>() ?? string.Empty)
+                .Where(s => !string.IsNullOrEmpty(s))
+                .ToList();
+        }
+    }
+
+    public void SaveConfigOrder(string workspaceId, IReadOnlyList<string> configIds)
+    {
+        lock (_sync)
+        {
+            var root = LoadRoot();
+            var map = root["configOrder"] as JsonObject ?? new JsonObject();
+            map[workspaceId] = new JsonArray(
+                configIds.Where(s => !string.IsNullOrEmpty(s))
+                    .Select(s => (JsonNode)s)
+                    .ToArray());
+            root["configOrder"] = map;
+            Save(root);
+        }
+    }
+
+    public Dictionary<string, object?> LoadSettings()
+    {
+        lock (_sync)
+        {
+            var root = LoadRoot();
+            return root["settings"] is JsonObject settings
+                ? ConfigImporter.FromJsonObject(settings)
+                : new Dictionary<string, object?>();
+        }
+    }
+
+    public void SaveSettings(Dictionary<string, object?> settings)
+    {
+        lock (_sync)
+        {
+            var root = LoadRoot();
+            var node = root["settings"] as JsonObject ?? new JsonObject();
+            foreach (var kv in settings)
+            {
+                if (kv.Value is null)
+                {
+                    node.Remove(kv.Key);
+                }
+                else
+                {
+                    node[kv.Key] = JsonSerializer.SerializeToNode(kv.Value);
+                }
+            }
+            root["settings"] = node;
             Save(root);
         }
     }
@@ -510,5 +577,36 @@ public sealed class LocalWorkspaceStore : IWorkspaceStore
         }
         workspaceId = string.Empty;
         return null;
+    }
+
+    private static void EnsureConfigOrderEntry(JsonObject root, string workspaceId, string configId)
+    {
+        var map = root["configOrder"] as JsonObject ?? new JsonObject();
+        var array = map[workspaceId] as JsonArray ?? new JsonArray();
+        if (array.Any(n => n?.GetValue<string>() == configId))
+        {
+            return;
+        }
+        array.Add((JsonNode)configId);
+        map[workspaceId] = array;
+        root["configOrder"] = map;
+    }
+
+    private static void RemoveConfigOrderEntry(JsonObject root, string workspaceId, string configId)
+    {
+        if (root["configOrder"] is not JsonObject map)
+        {
+            return;
+        }
+        if (map[workspaceId] is not JsonArray array)
+        {
+            return;
+        }
+        var existing = array.FirstOrDefault(n => n?.GetValue<string>() == configId);
+        if (existing is not null)
+        {
+            array.Remove(existing);
+        }
+        map[workspaceId] = array;
     }
 }

@@ -67,6 +67,8 @@ public interface IWorkspaceStore
     void DeleteWorkspace(string workspaceId);
 
     IReadOnlyList<ConfigInfo> ListConfigs(string workspaceId);
+    IReadOnlyList<string> GetConfigOrder(string workspaceId);
+    void SaveConfigOrder(string workspaceId, IReadOnlyList<string> configIds);
     ConfigData? LoadConfig(string workspaceId, string configId);
     void SaveConfig(ConfigData config);
     /// <summary>仅从指定工作空间桶移除配置节点（不删除版本历史；用于移动配置）。</summary>
@@ -77,4 +79,7 @@ public interface IWorkspaceStore
     VersionSnapshot? GetVersion(string workspaceId, string configId, string versionId);
     void SaveVersion(VersionSnapshot version);
     void DeleteVersion(string workspaceId, string configId, string versionId);
+
+    Dictionary<string, object?> LoadSettings();
+    void SaveSettings(Dictionary<string, object?> settings);
 }

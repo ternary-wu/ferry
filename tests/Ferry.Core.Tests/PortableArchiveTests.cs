@@ -167,4 +167,29 @@ public class PortableArchiveTests : IDisposable
         var configs = targetService.ListConfigs(result.WorkspaceId!);
         Assert.Equal(2, configs.Count);
     }
+
+    [Fact]
+    public void ExportWorkspace_ThenImport_PreservesConfigOrder()
+    {
+        var nginx = LoadNginx();
+        var service = new WorkspaceService(new LocalWorkspaceStore(Path.Combine(_dir, "source.json")));
+        var project = service.CreateProject("项目A");
+        var workspace = service.CreateWorkspace(project.Id, "生产环境");
+        var a = service.CreateConfig(project.Id, workspace.Id, nginx, name: "a.conf", sourceText: "A");
+        var b = service.CreateConfig(project.Id, workspace.Id, nginx, name: "b.conf", sourceText: "B");
+        var c = service.CreateConfig(project.Id, workspace.Id, nginx, name: "c.conf", sourceText: "C");
+        service.ReorderConfigs(workspace.Id, new[] { c.Id, a.Id, b.Id });
+
+        var zipPath = Path.Combine(_dir, "package.zip");
+        new PortableArchiveService(service, new List<PluginDescriptor> { nginx })
+            .ExportWorkspace(workspace.Id, zipPath);
+
+        var targetService = new WorkspaceService(new LocalWorkspaceStore(Path.Combine(_dir, "target.json")));
+        var result = new PortableArchiveService(targetService, new List<PluginDescriptor> { nginx })
+            .Import(zipPath);
+
+        Assert.Equal(3, result.ImportedConfigs);
+        var configs = targetService.ListConfigs(result.WorkspaceId!);
+        Assert.Equal(new[] { "c.conf", "a.conf", "b.conf" }, configs.Select(x => x.Name));
+    }
 }

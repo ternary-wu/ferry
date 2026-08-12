@@ -122,6 +122,66 @@ public class LocalWorkspaceStoreTests : IDisposable
     }
 
     [Fact]
+    public void ConfigOrder_RoundTrip_SaveAppends_RemoveCleans()
+    {
+        _store.SaveProject(new ProjectInfo("p1", "项目A", DateTimeOffset.Now, DateTimeOffset.Now));
+        _store.SaveWorkspace(new WorkspaceInfo("ws1", "p1", "项目A", DateTimeOffset.Now, DateTimeOffset.Now));
+        _store.SaveConfig(new ConfigData { Id = "cfg1", WorkspaceId = "ws1", Name = "a.conf" });
+        _store.SaveConfig(new ConfigData { Id = "cfg2", WorkspaceId = "ws1", Name = "b.conf" });
+
+        Assert.Equal(new[] { "cfg1", "cfg2" }, _store.GetConfigOrder("ws1"));
+
+        _store.SaveConfigOrder("ws1", new[] { "cfg2", "cfg1" });
+        Assert.Equal(new[] { "cfg2", "cfg1" }, _store.GetConfigOrder("ws1"));
+
+        // 新配置保存时自动追加到顺序末尾
+        _store.SaveConfig(new ConfigData { Id = "cfg3", WorkspaceId = "ws1", Name = "c.conf" });
+        Assert.Equal(new[] { "cfg2", "cfg1", "cfg3" }, _store.GetConfigOrder("ws1"));
+
+        // 移除配置时清理顺序条目
+        _store.RemoveConfig("ws1", "cfg1");
+        Assert.Equal(new[] { "cfg2", "cfg3" }, _store.GetConfigOrder("ws1"));
+    }
+
+    [Fact]
+    public void DeleteConfig_And_DeleteWorkspace_CleanConfigOrder()
+    {
+        _store.SaveProject(new ProjectInfo("p1", "项目A", DateTimeOffset.Now, DateTimeOffset.Now));
+        _store.SaveWorkspace(new WorkspaceInfo("ws1", "p1", "项目A", DateTimeOffset.Now, DateTimeOffset.Now));
+        _store.SaveConfig(new ConfigData { Id = "cfg1", WorkspaceId = "ws1", Name = "a.conf" });
+
+        _store.DeleteConfig("ws1", "cfg1");
+        Assert.Empty(_store.GetConfigOrder("ws1"));
+
+        _store.SaveConfig(new ConfigData { Id = "cfg2", WorkspaceId = "ws1", Name = "b.conf" });
+        _store.DeleteWorkspace("ws1");
+        Assert.Empty(_store.GetConfigOrder("ws1"));
+    }
+
+    [Fact]
+    public void Settings_MergeAndReload()
+    {
+        _store.SaveSettings(new Dictionary<string, object?>
+        {
+            ["theme"] = "dark",
+            ["tooltipDelay"] = 500L,
+            ["pluginDisabled"] = new Dictionary<string, object?> { ["Nginx"] = false }
+        });
+
+        var loaded = _store.LoadSettings();
+        Assert.Equal("dark", loaded["theme"]);
+        Assert.Equal(500L, loaded["tooltipDelay"]);
+        var disabled = Assert.IsType<Dictionary<string, object?>>(loaded["pluginDisabled"]);
+        Assert.Equal(false, disabled["Nginx"]);
+
+        // merge：只覆盖传入 key，其余保留
+        _store.SaveSettings(new Dictionary<string, object?> { ["theme"] = "light" });
+        loaded = _store.LoadSettings();
+        Assert.Equal("light", loaded["theme"]);
+        Assert.Equal(500L, loaded["tooltipDelay"]);
+    }
+
+    [Fact]
     public void ProjectCrud_And_DeleteProject_Cascades()
     {
         _store.SaveProject(new ProjectInfo("p1", "项目A", DateTimeOffset.Now, DateTimeOffset.Now));
