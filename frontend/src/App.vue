@@ -8,15 +8,30 @@ import ModalHost from './components/ModalHost.vue';
 import { useAppStore } from './stores/app';
 import { useProjectStore } from './stores/project';
 import { useSettingsStore } from './stores/settings';
+import { useUiStore } from './stores/ui';
 import { setIpcLatencyListener } from './ipc';
 
 const app = useAppStore();
 const projectStore = useProjectStore();
 const settingsStore = useSettingsStore();
+const ui = useUiStore();
 
 onMounted(async () => {
   setIpcLatencyListener((ms) => app.setLatency(ms));
   document.addEventListener('contextmenu', (event) => event.preventDefault());
+  document.addEventListener('click', () => ui.closeMenu());
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') {
+      return;
+    }
+    ui.closeMenu();
+    if (ui.promptOpen) {
+      ui.resolvePrompt(null);
+    }
+    if (ui.confirmOpen) {
+      ui.resolveConfirm(false);
+    }
+  });
   try {
     const res = await app.bootstrap();
     if (res.loadErrors.length > 0) {
