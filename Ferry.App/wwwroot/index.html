@@ -1,307 +1,200 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <title>Ferry</title>
-<style>
-*{box-sizing:border-box}
-html,body{height:100%}
-body{margin:0;height:100vh;background:#212121;color:#eee;font-family:"Segoe UI",Arial,sans-serif;font-size:13px;overflow:hidden;-webkit-font-smoothing:antialiased}
-button{font-family:inherit;font-size:inherit;color:inherit;background:none;border:none;cursor:pointer}
-input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
-::-webkit-scrollbar{width:8px;height:8px}
-::-webkit-scrollbar-thumb{background:#3a3a3a;border-radius:4px}
-::-webkit-scrollbar-track{background:transparent}
-
-.app{display:flex;height:100vh}
-
-/* ===== Sidebar ===== */
-.sidebar{width:270px;min-width:270px;background:#171717;border-right:1px solid #333;padding:16px;display:flex;flex-direction:column;overflow-y:auto}
-.logo{font-size:20px;font-weight:600;margin-bottom:16px;letter-spacing:.3px}
-.project-selector{position:relative}
-.project-btn{width:100%;display:flex;align-items:center;gap:8px;background:#303030;padding:12px 14px;border-radius:12px;cursor:pointer;border:1px solid transparent;font-size:14px}
-.project-btn:hover{border-color:#555}
-.project-btn .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.project-btn .caret{color:#999;font-size:11px}
-.project-menu{position:absolute;top:calc(100% + 6px);left:0;right:0;background:#252525;border:1px solid #444;border-radius:12px;padding:6px;z-index:50;display:none;box-shadow:0 8px 24px rgba(0,0,0,.5)}
-.project-menu.open{display:block}
-.menu-item{padding:9px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px}
-.menu-item:hover{background:#303030}
-.menu-item.active{color:#fff}
-.menu-item .check{margin-left:auto;color:#2f6feb}
-.menu-sep{height:1px;background:#3a3a3a;margin:6px 4px}
-.btn{background:#303030;padding:12px;border-radius:10px;text-align:center;margin-top:14px;cursor:pointer;transition:background .12s}
-.btn:hover{background:#3a3a3a}
-.btn.primary{background:#2f6feb;color:#fff}
-.btn.primary:hover{background:#3a7bf0}
-.btn.small{padding:6px 10px;border-radius:8px;margin:0;font-size:12px}
-.btn.big{padding:14px 28px;border-radius:14px;font-size:15px}
-.section{font-size:12px;color:#999;margin:22px 0 8px}
-.tree{display:flex;justify-content:space-between;align-items:center;padding:8px 6px;color:#ddd;cursor:pointer;border-radius:8px;user-select:none}
-.tree:hover{background:#222}
-.tree .plus{opacity:0;color:#999;cursor:pointer;padding:0 6px}
-.tree:hover .plus{opacity:1}
-.tree .plus:hover{color:#fff}
-.tree-group{display:none}
-.tree-group.open{display:block}
-.item{padding:8px 10px;border-radius:8px;margin:3px 0;cursor:pointer;color:#ddd;display:flex;align-items:center;gap:8px;position:relative}
-.item:hover{background:#303030}
-.item.active{background:#303030;color:#fff}
-.item .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.item .badge{font-size:11px;color:#888}
-.item .badge.missing{color:#f85149}
-.item .menu-btn{opacity:0;color:#888;padding:0 4px}
-.item:hover .menu-btn{opacity:1}
-.item .menu-btn:hover{color:#fff}
-.child{padding-left:28px}
-.spacer{flex:1}
-.setting{padding:10px 6px;color:#aaa;cursor:pointer;border-radius:8px;font-size:13px}
-.setting:hover{background:#222;color:#fff}
-
-/* 配置右键菜单 */
-.ctx-menu{position:fixed;background:#252525;border:1px solid #444;border-radius:10px;padding:6px;z-index:100;min-width:170px;display:none;box-shadow:0 8px 24px rgba(0,0,0,.5)}
-.ctx-menu.open{display:block}
-
-/* ===== Main ===== */
-.main{flex:1;display:flex;flex-direction:column;min-width:0}
-.content{flex:1;display:flex;min-height:0;position:relative}
-.top{height:56px;border-bottom:1px solid #333;display:flex;align-items:center;gap:10px;padding:0 20px;flex-shrink:0}
-.crumb{font-size:13px;color:#bbb;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.crumb b{color:#eee;font-weight:600}
-.top .spacer{flex:1}
-.topBtn{background:#303030;padding:8px 14px;border-radius:10px;cursor:pointer;color:#ddd;transition:background .12s;white-space:nowrap}
-.topBtn:hover{background:#3a3a3a;color:#fff}
-.topBtn.active{background:#2f6feb;color:#fff}
-
-/* 停靠面板（Dock Panel） */
-.split-resizer{width:4px;cursor:col-resize;background:transparent;flex-shrink:0}
-.split-resizer:hover{background:#2f6feb66}
-.dock-panel{flex:0 0 50%;max-width:60%;display:flex;flex-direction:column;background:#181818;border-left:1px solid #444}
-.pane-source{flex:1;display:flex;flex-direction:column;min-height:0;background:#181818}
-#mainPanel.full .editor{display:none !important}
-#mainPanel.full .split-resizer{display:none}
-#mainPanel.full .dock-panel{flex:1;max-width:none;min-width:0}
-
-/* ===== 欢迎页（一级界面） ===== */
-.welcome{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:40px}
-.welcome .icon{width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#2f6feb,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:700;color:#fff}
-.welcome h1{font-size:26px;margin:0}
-.welcome p{color:#999;margin:0 0 8px}
-.welcome .recent{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:18px;max-width:520px}
-.chip{background:#2b2b2b;border:1px solid #444;border-radius:20px;padding:7px 14px;font-size:12px;color:#ccc;cursor:pointer}
-.chip:hover{border-color:#2f6feb;color:#fff}
-.recent-label{color:#888;font-size:12px}
-
-/* ===== 编辑器 ===== */
-.editor{flex:1;padding:28px;overflow-y:auto}
-.editor-head{max-width:760px;margin:0 auto}
-.editor-head h2{font-size:21px;margin:0 0 4px}
-.editor-head p{color:#999;margin:0 0 14px;font-size:13px}
-.editor-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.editor-tools .spacer{flex:1}
-.card{background:#2b2b2b;border:1px solid #444;border-radius:14px;margin-top:14px;width:100%;overflow:hidden}
-.card-head{display:flex;align-items:center;gap:10px;padding:13px 16px;cursor:pointer;user-select:none;transition:background .12s}
-.card-head:hover{background:#2f2f2f}
-.card-head .title{flex:1;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.card-head .count{font-size:11px;color:#999;background:#3a3a3a;padding:1px 8px;border-radius:10px}
-.card-head .chev{color:#888;font-size:11px;transition:transform .2s}
-.card.collapsed .card-head .chev{transform:rotate(-90deg)}
-.card.collapsed .card-body{display:none}
-.card.disabled .card-body{opacity:.5}
-.card-body{padding:2px 16px 10px}
-.row{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:10px 0;border-bottom:1px solid #444}
-.row:last-child{border-bottom:none}
-.row-label{flex:0 0 150px;padding-top:5px}
-.row-label .n{font-size:13px;font-weight:500}
-.row-label .d{font-size:11px;color:#999;line-height:1.4;margin-top:1px}
-.row-control{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
-.row-control input[type=text],.row-control input[type=number],.row-control select{width:100%;background:#171717;color:#eee;border:1px solid #555;padding:7px 10px;border-radius:10px;outline:none;font-size:13px;transition:border .12s}
-.row-control input:focus,.row-control select:focus{border-color:#2f6feb}
-.row-error{color:#f85149;font-size:12px}
-.check{width:16px;height:16px;border:1.5px solid #666;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .12s;background:transparent;color:transparent;font-size:11px;margin-top:4px}
-.check:hover{border-color:#2f6feb}
-.check.checked{background:#2f6feb;border-color:#2f6feb;color:#fff}
-.check.lock{border:none;cursor:default;font-size:11px;color:#888}
-.toggle{width:36px;height:20px;background:#3a3a3a;border-radius:10px;cursor:pointer;position:relative;transition:background .12s;flex-shrink:0}
-.toggle::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;background:#ddd;border-radius:50%;transition:left .12s}
-.toggle.active{background:#2f6feb}
-.toggle.active::after{left:18px}
-.array-item{border:1px solid #444;border-radius:10px;margin:8px 0;background:#222}
-.array-item-head{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;user-select:none}
-.array-item-head .t{flex:1;font-size:13px;color:#ccc}
-.array-item-head .del{color:#888;opacity:0}
-.array-item-head:hover .del{opacity:1}
-.array-item-head .del:hover{color:#f85149}
-.array-item.collapsed .array-item-body{display:none}
-.array-item-body{padding:2px 12px 10px;border-top:1px solid #444}
-.array-add{display:inline-flex;align-items:center;gap:6px;color:#999;border:1px dashed #555;padding:8px 12px;border-radius:10px;margin-top:8px;cursor:pointer;transition:all .12s}
-.array-add:hover{color:#2f6feb;border-color:#2f6feb}
-.quick-row{padding:12px 16px;border-bottom:1px solid #444;display:flex;align-items:center;gap:10px;cursor:pointer;transition:background .12s}
-.quick-row:last-child{border-bottom:none}
-.quick-row:hover{background:#2f2f2f}
-.quick-row .arrow{margin-left:auto;color:#888}
-
-/* ===== 源码面板 ===== */
-.code{padding:16px;font-family:Consolas,monospace;font-size:12px;white-space:pre;overflow:auto;flex:1}
-
-/* ===== 弹窗 ===== */
-.modal{display:none;position:absolute;inset:0;background:#0008;z-index:10}
-.modal.open{display:block}
-.window{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:560px;max-width:92vw;max-height:84vh;overflow-y:auto;background:#252525;border-radius:16px;padding:26px}
-.modal-close{position:absolute;top:12px;right:14px;width:28px;height:28px;border-radius:50%;color:#999;display:flex;align-items:center;justify-content:center}
-.modal-close:hover{background:#3a3a3a;color:#fff}
-.modal-close svg{width:13px;height:13px}
-.window h2{font-size:18px;margin:0 0 6px}
-.window .sub{color:#999;font-size:13px;margin:0 0 16px}
-.step{display:none}
-.step.active{display:block}
-.search,input[type=text]{width:100%;background:#171717;color:#fff;border:1px solid #555;padding:12px;border-radius:10px;outline:none;font-size:14px}
-.search:focus{border-color:#2f6feb}
-.option{background:#303030;padding:13px 14px;border-radius:10px;margin-top:10px;cursor:pointer;transition:background .12s}
-.option:hover{background:#3a3a3a}
-.option.active{background:#2f6feb22;border:1px solid #2f6feb}
-.option small{color:#999}
-.option .desc{color:#999;font-size:12px;margin-top:2px}
-.mini-label{font-size:11px;color:#999;margin:16px 0 4px}
-.field-label{font-size:13px;margin:14px 0 6px;color:#ccc}
-.footer{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
-.footer .btn{margin-top:0}
-.list-item{background:#303030;padding:12px 14px;border-radius:10px;margin-top:10px;cursor:pointer;display:flex;align-items:center;gap:10px}
-.list-item:hover{background:#3a3a3a}
-.list-item .t{flex:1;color:#ccc;font-size:13px}
-.list-item .acts{display:flex;gap:6px;color:#888}
-.list-item .acts span{cursor:pointer}
-.list-item .acts span:hover{color:#fff}
-.list-item .acts .del:hover{color:#f85149}
-.settings-tabs{display:flex;gap:4px;border-bottom:1px solid #333;margin-bottom:14px}
-.settings-tab{padding:8px 14px;font-size:12px;color:#999;cursor:pointer;border-bottom:2px solid transparent}
-.settings-tab.active{color:#fff;border-bottom-color:#2f6feb}
-.settings-pane{display:none}
-.settings-pane.active{display:block}
-.plugin-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #333}
-.plugin-row .n{flex:1;font-weight:500}
-.plugin-row .v{color:#999;font-size:12px}
-.plugin-row .e{color:#f85149;font-size:12px}
-
-/* ===== 状态栏 ===== */
-.statusbar{height:30px;border-top:1px solid #333;display:flex;align-items:center;gap:16px;padding:0 14px;font-size:12px;color:#999;flex-shrink:0}
-.statusbar .ok{color:#3fb950}
-.statusbar .bad{color:#f85149}
-.statusbar .spacer{flex:1}
-
-/* ===== Toast ===== */
-.toast{position:fixed;bottom:50px;left:50%;transform:translateX(-50%) translateY(20px);background:#303030;color:#eee;border:1px solid #555;border-radius:10px;padding:9px 18px;font-size:13px;opacity:0;visibility:hidden;transition:all .2s;z-index:20;max-width:70vw}
-.toast.show{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0)}
-</style>
+<link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-<div class="app" id="app">
+<div class="ferry-window-shell">
 
-  <aside class="sidebar">
-    <div class="logo">Ferry</div>
-    <div class="project-selector">
-      <div class="project-btn" id="projectBtn">
-        <span class="name" id="projectName">选择项目</span>
-        <span class="caret">▼</span>
-      </div>
-      <div class="project-menu" id="projectMenu">
-        <div id="projectMenuList"></div>
-        <div class="menu-sep"></div>
-        <div class="menu-item" id="btnNewProject">＋ 新建项目</div>
-      </div>
-    </div>
-    <div class="btn" id="btnNewConfig">＋ 新建配置</div>
-    <div class="section">工作空间</div>
-    <div id="workspaceTree"><span style="color:#999;font-size:13px">选择项目后显示</span></div>
-    <div class="section">配置</div>
-    <div id="unassignedTree"></div>
-    <div class="spacer"></div>
-    <div class="setting" id="btnSettings">⚙ 设置</div>
-  </aside>
+  <!-- ===== Window Shell / Title Bar ===== -->
+  <div class="ferry-title-bar" id="titleBar">
+    <span class="tb-title">Ferry</span>
+    <span class="tb-crumb" id="tbCrumb"></span>
+    <span class="tb-right">
+      <button class="win-btn bell" id="bellBtn" title="通知">🔔<span class="bell-count" id="bellCount" style="display:none"></span></button>
+      <span class="win-controls">
+        <button class="win-btn" id="winMin" title="最小化"><svg viewBox="0 0 12 12"><path d="M1 6h10" stroke="currentColor" stroke-width="1.2"/></svg></button>
+        <button class="win-btn" id="winMax" title="最大化 / 还原"><svg viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.2"/></svg></button>
+        <button class="win-btn close" id="winClose" title="关闭"><svg viewBox="0 0 12 12"><path d="M1.5 1.5l9 9M10.5 1.5l-9 9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></button>
+      </span>
+    </span>
+  </div>
+  <div class="notify-panel" id="notifyPanel" style="display:none">
+    <div class="notify-head"><span>通知</span><button class="btn small" id="notifyClear">清空</button></div>
+    <div id="notifyList"></div>
+  </div>
 
-  <div class="main" id="mainPanel">
-    <div class="top" id="topBar" style="display:none">
-      <span class="crumb" id="crumbText"></span>
-      <span class="spacer"></span>
-      <button class="topBtn" id="btnSourceFull" style="display:none" title="停靠面板占满主工作面板 / 还原">⛶ 全占</button>
-      <button class="topBtn" id="btnSource">源码</button>
-    </div>
-    <div class="content" id="content">
-      <div class="welcome" id="welcome">
-        <div class="icon">F</div>
-        <h1>Ferry</h1>
-        <p>从模板开始，快速创建运维配置</p>
-        <button class="btn primary big" id="btnWelcomeNew">＋ 新建配置</button>
-        <div class="recent-label">最近使用</div>
-        <div class="recent" id="recentChips"></div>
+  <!-- ===== App Layout ===== -->
+  <div class="ferry-app-layout" id="app">
+
+    <!-- Sidebar -->
+    <aside class="ferry-sidebar">
+      <div class="logo">Ferry</div>
+      <div class="project-selector">
+        <div class="project-btn" id="projectBtn">
+          <span class="name" id="projectName">选择项目</span>
+          <span class="caret">▼</span>
+        </div>
+        <div class="project-menu" id="projectMenu">
+          <div id="projectMenuList"></div>
+          <div class="menu-sep"></div>
+          <div class="menu-item" id="btnNewProject">＋ 新建项目</div>
+        </div>
       </div>
-      <div class="editor" id="editor" style="display:none">
-        <div class="editor-head">
-          <h2 id="formTitle">Ferry</h2>
-          <p id="formSubtitle"></p>
-          <div class="editor-tools">
-            <button class="btn small" id="btnCollapseAll">折叠全部</button>
-            <button class="btn small" id="btnExpandAll">展开全部</button>
+      <div class="btn" id="btnNewConfig">＋ 新建配置</div>
+
+      <div class="section" id="wsSection">
+        <span>工作空间</span>
+        <span class="collapse-ind" id="wsCollapse">▾</span>
+        <span class="section-spacer"></span>
+        <span class="section-plus" id="wsPlus" title="创建工作空间">＋</span>
+      </div>
+      <div id="workspaceTree" class="tree-group open"><span class="hint">选择项目后显示</span></div>
+      <div class="ws-drop-zone" id="wsDropZone">＋ 创建工作空间</div>
+
+      <div class="section" id="cfgSection">
+        <span>配置</span>
+        <span class="collapse-ind" id="cfgCollapse">▾</span>
+        <span class="section-spacer"></span>
+        <span class="section-plus" id="cfgPlus" title="新建未归类配置">＋</span>
+        <span class="section-count" id="cfgCount"></span>
+      </div>
+      <div id="unassignedTree" class="tree-group open"></div>
+
+      <div id="settingsNav" style="display:none"></div>
+      <div class="spacer"></div>
+      <div class="section" id="toolsSection" style="display:none"><span>工具</span><span class="section-count" id="toolsCount"></span></div>
+      <div id="toolsTree" class="tree-group open"></div>
+      <div class="setting" id="btnSettings">⚙ 设置</div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <div class="ferry-main-workspace" id="mainPanel">
+      <div class="top" id="topBar" style="display:none">
+        <div class="top-title">
+          <div id="tbConfigName"></div>
+          <div id="tbConfigMeta"></div>
+        </div>
+        <div class="spacer"></div>
+        <button class="topBtn" id="btnSourceFull" style="display:none" title="停靠面板占满主工作面板 / 还原">⛶ 全占</button>
+        <button class="topBtn" id="btnSource">源码</button>
+      </div>
+
+      <div class="content" id="content">
+        <!-- Welcome -->
+        <div class="welcome" id="welcome">
+          <div class="welcome-main">
+            <div class="icon">F</div>
+            <h1>Ferry</h1>
+            <p>从模板开始，快速创建运维配置</p>
+            <button class="btn primary big" id="btnWelcomeNew">＋ 新建配置</button>
+          </div>
+          <div class="recent-section">
+            <div class="recent-label">最近使用</div>
+            <div class="recent-row" id="recentChips"></div>
           </div>
         </div>
-        <div id="formRoot"></div>
+
+        <!-- Configuration Editor -->
+        <div class="editor" id="editor" style="display:none">
+          <div class="editor-head">
+            <p id="formTemplate"></p>
+            <div class="editor-tools">
+              <select class="btn small" id="fieldFilter">
+                <option value="all">全部</option>
+                <option value="selected">已选择</option>
+                <option value="unselected">未选择</option>
+              </select>
+              <input type="text" id="fieldSearch" class="field-search" placeholder="搜索字段…" />
+              <button class="btn small" id="btnCollapseAll">折叠全部</button>
+              <button class="btn small" id="btnExpandAll">展开全部</button>
+            </div>
+          </div>
+          <div id="formRoot"></div>
+        </div>
+
+        <!-- Settings Page -->
+        <div class="settings-page" id="settingsPage" style="display:none">
+          <div id="settingsContent"></div>
+        </div>
+
+        <!-- Dock Panel -->
+        <div class="split-resizer" id="splitResizer" style="display:none"></div>
+        <div class="ferry-dock-panel" id="dockPanel" style="display:none">
+          <pre class="code" id="previewCode"></pre>
+        </div>
+
+        <div class="tooltip" id="tooltip" style="display:none"></div>
       </div>
-      <div class="split-resizer" id="splitResizer" style="display:none"></div>
-      <div class="dock-panel" id="dockPanel" style="display:none">
-        <pre class="code" id="previewCode"></pre>
-      </div>
+
+      <footer class="statusbar">
+        <span id="statusText">就绪</span>
+        <span id="moduleStatus"></span>
+        <span class="spacer"></span>
+        <span id="latency"></span>
+      </footer>
     </div>
-<footer class="statusbar">
-      <span id="statusText">就绪</span>
-      <span id="moduleStatus"></span>
-      <span class="spacer"></span>
-      <span id="latency"></span>
-    </footer>
   </div>
 </div>
 
+<!-- ===== 通用右键菜单 ===== -->
 <div class="ctx-menu" id="ctxMenu"></div>
 
-<!-- 新建配置向导 -->
-<div class="modal" id="wizardModal">
-  <div class="window">
+<!-- ===== 新建配置向导 ===== -->
+<div class="ferry-modal-overlay" id="wizardModal">
+  <div class="ferry-modal-window">
     <button class="modal-close" data-close="wizardModal"><svg viewBox="0 0 14 14"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+    <div class="wizard-steps">
+      <span class="ws-dot active" id="wsDot1"></span><span class="ws-line"></span>
+      <span class="ws-dot future" id="wsDot2"></span><span class="ws-line"></span>
+      <span class="ws-dot future" id="wsDot3"></span>
+    </div>
     <div class="step active" id="wz1">
       <h2>选择插件</h2>
       <p class="sub">选择要创建配置的能力</p>
       <input class="search" id="wzPluginSearch" placeholder="搜索插件…" />
-      <div id="wzRecentList"></div>
+      <div class="mini-label" id="wzRecentLabel" style="display:none">最近使用</div>
+      <div id="wzRecentList" class="plugin-grid"></div>
       <div class="mini-label">全部插件</div>
-      <div id="wzPluginList"></div>
+      <div id="wzPluginList" class="plugin-grid"></div>
     </div>
     <div class="step" id="wz2">
       <h2>选择模板</h2>
       <p class="sub">模板由插件定义；未选择则使用默认模板</p>
-      <div id="wzTemplateList"></div>
+      <div id="wzTemplateList" class="plugin-grid"></div>
+      <div class="footer">
+        <div class="footer-left">
+          <button class="wz-back" id="wzBackIcon2" title="返回上一步">‹</button>
+        </div>
+        <div class="footer-right"></div>
+      </div>
     </div>
     <div class="step" id="wz3">
       <h2>配置信息</h2>
-      <p class="sub">名称和工作空间均可留空，由默认规则补充</p>
-      <div class="field-label">名称</div>
-      <input type="text" id="wzName" placeholder="默认名称（如 nginx.conf）" />
-      <div class="field-label">工作空间</div>
-      <select id="wzWorkspace" style="width:100%;background:#171717;border:1px solid #555;padding:12px;border-radius:10px;color:#eee"></select>
+      <input type="text" id="wzName" placeholder="输入配置名" style="margin-top:8px" />
+      <select id="wzWorkspace" class="wz-ws"></select>
       <div class="footer">
-        <button class="btn" id="wzBack" style="display:none">上一步</button>
-        <button class="btn" id="wzCancel">取消</button>
-        <button class="btn primary" id="wzCreate" style="display:none">创建</button>
+        <div class="footer-left">
+          <button class="wz-back" id="wzBackIcon" style="display:none" title="返回上一步">‹</button>
+        </div>
+        <div class="footer-right">
+          <button class="btn" id="wzCancel">取消</button>
+          <button class="btn primary" id="wzCreate" style="display:none">创建</button>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- 移动工作空间 -->
-<div class="modal" id="moveModal">
-  <div class="window">
+<!-- ===== 移动工作空间 ===== -->
+<div class="ferry-modal-overlay" id="moveModal">
+  <div class="ferry-modal-window">
     <button class="modal-close" data-close="moveModal"><svg viewBox="0 0 14 14"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
     <h2>移动工作空间</h2>
     <p class="sub" id="moveTargetLabel"></p>
-    <select id="moveWorkspace" style="width:100%;background:#171717;border:1px solid #555;padding:12px;border-radius:10px;color:#eee"></select>
+    <select id="moveWorkspace" class="wz-ws"></select>
     <div class="footer">
       <button class="btn" id="btnMoveCancel">取消</button>
       <button class="btn primary" id="btnMoveOk">移动</button>
@@ -309,9 +202,9 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
   </div>
 </div>
 
-<!-- 版本 -->
-<div class="modal" id="versionsModal">
-  <div class="window">
+<!-- ===== 版本历史 ===== -->
+<div class="ferry-modal-overlay" id="versionsModal">
+  <div class="ferry-modal-window">
     <button class="modal-close" data-close="versionsModal"><svg viewBox="0 0 14 14"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
     <h2>版本历史</h2>
     <p class="sub">留档当前配置源码，可随时回滚</p>
@@ -323,46 +216,13 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
   </div>
 </div>
 
-<!-- 设置 -->
-<div class="modal" id="settingsModal">
-  <div class="window">
-    <button class="modal-close" data-close="settingsModal"><svg viewBox="0 0 14 14"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
-    <h2>设置</h2>
-    <div class="settings-tabs">
-      <button class="settings-tab active" data-pane="plugins">插件管理</button>
-      <button class="settings-tab" data-pane="templates">模板管理</button>
-      <button class="settings-tab" data-pane="system">系统设置</button>
-      <button class="settings-tab" data-pane="about">关于</button>
-    </div>
-    <div class="settings-pane active" id="pane-plugins"><div id="settingsPlugins"></div></div>
-    <div class="settings-pane" id="pane-templates"><div id="settingsTemplates"></div></div>
-    <div class="settings-pane" id="pane-system">
-      <div class="field-label">交互</div>
-      <label style="display:flex;align-items:center;gap:8px;color:#ccc;margin-bottom:10px">
-        <input type="checkbox" id="closeOutside" /> 点击窗口外区域关闭弹窗
-      </label>
-      <div class="field-label">日志文件</div>
-      <div id="settingsLogPath" style="color:#999;font-size:12px;word-break:break-all"></div>
-      <div class="footer" style="justify-content:flex-start">
-        <button class="btn" id="btnOpenLogs">打开日志</button>
-        <button class="btn" id="btnImportArchive">导入存档包</button>
-      </div>
-      <input type="text" id="archivePath" style="margin-top:10px" placeholder="存档包 zip 路径（导入）" />
-      <div id="archiveResult" style="color:#999;font-size:12px;margin-top:8px"></div>
-    </div>
-    <div class="settings-pane" id="pane-about">
-      <div class="field-label">Ferry v2</div>
-      <div style="color:#999;font-size:12px">插件化运维配置生成工具 · 项目/工作空间/配置三层管理</div>
-    </div>
-  </div>
-</div>
-
-<!-- 通用输入 / 确认 -->
-<div class="modal" id="promptModal">
-  <div class="window">
+<!-- ===== 通用输入 / 确认 ===== -->
+<div class="ferry-modal-overlay" id="promptModal">
+  <div class="ferry-modal-window">
     <button class="modal-close" data-close="promptModal"><svg viewBox="0 0 14 14"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
     <h2 id="promptTitle">输入</h2>
-    <input type="text" id="promptInput" style="margin-top:12px" />
+    <input type="text" id="promptInput" class="ferry-input" placeholder="输入内容" />
+    <div class="prompt-error" id="promptHint" style="display:none">名称不能为空</div>
     <div class="footer">
       <button class="btn" id="promptCancel">取消</button>
       <button class="btn primary" id="promptOk">确定</button>
@@ -370,8 +230,8 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
   </div>
 </div>
 
-<div class="modal" id="confirmModal">
-  <div class="window">
+<div class="ferry-modal-overlay" id="confirmModal">
+  <div class="ferry-modal-window">
     <button class="modal-close" data-close="confirmModal"><svg viewBox="0 0 14 14"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
     <h2 id="confirmTitle">确认</h2>
     <p class="sub" id="confirmMessage"></p>
@@ -383,6 +243,9 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 </div>
 
 <div class="toast" id="toast"></div>
+<div class="drag-preview" id="dragPreview"></div>
+<script src="window.js"></script>
+<script src="modules.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

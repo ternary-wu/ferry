@@ -121,6 +121,47 @@ public class WorkspaceServiceTests : IDisposable
     }
 
     [Fact]
+    public void EnsureDefaultProject_RemovesDefaultWorkspace_MovesConfigsToUnassigned()
+    {
+        var now = DateTimeOffset.Now;
+        var file = Path.Combine(Path.GetTempPath(), $"ferry-clean-{Guid.NewGuid():N}.json");
+        var store = new LocalWorkspaceStore(file);
+        try
+        {
+            var project = store.ListProjects().FirstOrDefault(p => p.Name == "默认项目");
+            if (project is null)
+            {
+                store.SaveProject(new ProjectInfo("p1", "默认项目", now, now));
+                project = store.GetProject("p1")!;
+            }
+            store.SaveWorkspace(new WorkspaceInfo("ws1", project.Id, "默认工作空间", now, now));
+            store.SaveConfig(new ConfigData
+            {
+                Id = "cfg1",
+                ProjectId = project.Id,
+                WorkspaceId = "ws1",
+                Name = "nginx.conf",
+                SourceText = "worker_processes auto;\n"
+            });
+            var service = new WorkspaceService(store);
+
+            service.EnsureDefaultProject();
+
+            Assert.Empty(service.ListWorkspaces());
+            var unassigned = Assert.Single(service.ListUnassignedConfigs(project.Id));
+            Assert.Equal("cfg1", unassigned.Id);
+            Assert.Equal("worker_processes auto;\n", service.LoadConfig(string.Empty, "cfg1")!.SourceText);
+        }
+        finally
+        {
+            if (File.Exists(file))
+            {
+                File.Delete(file);
+            }
+        }
+    }
+
+    [Fact]
     public void ResolvePlugin_MissingAndVersionChanged()
     {
         var nginx = LoadNginx();

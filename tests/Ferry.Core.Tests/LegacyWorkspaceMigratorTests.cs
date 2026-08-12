@@ -43,16 +43,17 @@ public class LegacyWorkspaceMigratorTests : IDisposable
         Assert.Equal(2, result.CreatedConfigs);
         Assert.Contains("Missing-plugin", result.MissingPlugins);
 
-        var workspace = Assert.Single(service.ListWorkspaces());
-        Assert.Equal("默认工作空间", workspace.Name);
+        var project = Assert.Single(service.ListProjects());
+        Assert.Equal("默认项目", project.Name);
+        Assert.Empty(service.ListWorkspaces());
 
-        var configs = service.ListConfigs(workspace.Id);
+        var configs = service.ListUnassignedConfigs(project.Id);
         Assert.Equal(2, configs.Count);
-        var nginx = service.LoadConfig(workspace.Id, configs.Single(c => c.PluginKey == "Nginx").Id);
+        var nginx = service.LoadConfig(string.Empty, configs.Single(c => c.PluginKey == "Nginx").Id);
         Assert.NotNull(nginx);
         Assert.Contains("worker_processes auto;", nginx!.SourceText);
         Assert.Equal("auto", nginx.Values["worker_processes"]);
-        var missing = service.LoadConfig(workspace.Id, configs.Single(c => c.PluginKey == "Missing-plugin").Id);
+        var missing = service.LoadConfig(string.Empty, configs.Single(c => c.PluginKey == "Missing-plugin").Id);
         Assert.NotNull(missing);
         Assert.Equal("Missing-plugin.conf", missing!.Name);
         Assert.Empty(missing.SourceText);

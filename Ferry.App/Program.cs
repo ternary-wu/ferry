@@ -57,12 +57,17 @@ public static class Program
             workspaceService,
             new PortableArchiveService(workspaceService, Array.Empty<PluginDescriptor>()));
 
+        var scale = Window.WindowController.GetSystemScaleFactor();
         var window = new PhotinoWindow()
             .SetTitle("Ferry")
             .SetUseOsDefaultSize(false)
-            .SetSize(1280, 800)
-            .RegisterWebMessageReceivedHandler((sender, message) =>
-                HandleMessage(sender, context, message, selfCheck));
+            .SetSize((int)Math.Round(1440 * scale), (int)Math.Round(900 * scale))
+            .SetMinSize((int)Math.Round(1200 * scale), (int)Math.Round(720 * scale))
+            .SetChromeless(true);
+        var windowController = new Window.WindowController(window);
+        windowController.Initialize();
+        window.RegisterWebMessageReceivedHandler((sender, message) =>
+            HandleMessage(sender, context, windowController, message, selfCheck));
         Log("window-created");
 
         var htmlPath = Path.Combine(AppContext.BaseDirectory, "wwwroot", "index.html");
@@ -80,6 +85,7 @@ public static class Program
     private static void HandleMessage(
         object? sender,
         HostContext ctx,
+        Window.WindowController windowController,
         string message,
         bool selfCheck)
     {
@@ -97,6 +103,17 @@ public static class Program
             // 自检触发信号：只下发，不回包（避免与 JS 在途请求的响应错配）
             if (action == "spike:run")
             {
+                return;
+            }
+            // 关闭窗口后 WebView 已不可用，必须提前返回，不能再 SendWebMessage 回包
+            if (action == "window:close")
+            {
+                WindowClose(windowController);
+                return;
+            }
+            if (action == "spike:result")
+            {
+                OnSpikeResult(window, message);
                 return;
             }
 
@@ -143,8 +160,13 @@ public static class Program
                 "archive:import" => ArchiveImport(ctx, request!),
                 "logs:path" => LogsPath(),
                 "logs:open" => LogsOpen(),
+                "app:dataDir" => AppDataDir(),
+                "trash:list" => TrashList(),
+                "trash:delete" => TrashDelete(request!),
+                "window:minimize" => WindowMinimize(windowController),
+                "window:maximize" => WindowMaximize(windowController),
+                "window:drag" => WindowDrag(windowController),
                 "log" => LogJs(request ?? new JsonObject()),
-                "spike:result" => OnSpikeResult(window, message),
                 _ => null
             };
 
@@ -653,6 +675,77 @@ public static class Program
         {
             UseShellExecute = true
         });
+        return Ok();
+    }
+
+    /// <summary>应用数据目录（%AppData%/Ferry），供回收站等 UI 功能使用。</summary>
+    private static JsonObject AppDataDir()
+        => Ok(new JsonObject
+        {
+            ["path"] = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "Ferry")
+        });
+
+    private static string TrashDir()
+        => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "Ferry",
+            "trash");
+
+    private static JsonObject TrashList()
+    {
+        var dir = TrashDir();
+        JsonNode[] items = Directory.Exists(dir)
+            ? Directory.GetFiles(dir, "*.zip")
+                .Select(f => new FileInfo(f))
+                .Select(fi => (JsonNode)new JsonObject
+                {
+                    ["name"] = fi.Name,
+                    ["path"] = fi.FullName,
+                    ["size"] = fi.Length,
+                    ["modified"] = fi.LastWriteTime.ToString("yyyy-MM-dd HH:mm")
+                })
+                .ToArray()
+            : Array.Empty<JsonNode>();
+        return Ok(new JsonObject { ["items"] = new JsonArray(items) });
+    }
+
+    private static JsonObject TrashDelete(JsonObject request)
+    {
+        var path = request["path"]!.GetValue<string>();
+        var full = Path.GetFullPath(path);
+        var dir = Path.GetFullPath(TrashDir());
+        if (!full.StartsWith(dir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+            || !File.Exists(full))
+        {
+            return Fail(new[] { "非法路径" });
+        }
+        File.Delete(full);
+        return Ok();
+    }
+
+    private static JsonObject WindowMinimize(Window.WindowController controller)
+    {
+        controller.Minimize();
+        return Ok();
+    }
+
+    private static JsonObject WindowMaximize(Window.WindowController controller)
+    {
+        controller.ToggleMaximize();
+        return Ok();
+    }
+
+    private static JsonObject WindowClose(Window.WindowController controller)
+    {
+        controller.Close();
+        return Ok();
+    }
+
+    private static JsonObject WindowDrag(Window.WindowController controller)
+    {
+        controller.BeginNativeDrag();
         return Ok();
     }
 

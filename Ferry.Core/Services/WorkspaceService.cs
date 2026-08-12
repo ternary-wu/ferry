@@ -52,6 +52,23 @@ public sealed class WorkspaceService
         {
             _store.SaveWorkspace(workspace with { ProjectId = project.Id });
         }
+        // 取消"默认工作空间"：其配置移入未归类后删除（历史数据清理，未归类配置已承担该职责）
+        foreach (var ws in _store.ListWorkspaces()
+                     .Where(w => w.ProjectId == project.Id && w.Name == "默认工作空间")
+                     .ToList())
+        {
+            foreach (var info in _store.ListConfigs(ws.Id))
+            {
+                var config = _store.LoadConfig(ws.Id, info.Id);
+                if (config is not null)
+                {
+                    config.WorkspaceId = string.Empty;
+                    _store.RemoveConfig(ws.Id, info.Id);
+                    _store.SaveConfig(config);
+                }
+            }
+            _store.DeleteWorkspace(ws.Id);
+        }
         return project;
     }
 
