@@ -30,6 +30,44 @@ export const useProjectStore = defineStore('project', () => {
     currentProjectId.value = projectId;
   }
 
+  async function createProject(name: string) {
+    const res = await getIpc().send('project:create', { name });
+    projects.value = [...projects.value, res.project];
+    currentProjectId.value = res.project.id;
+    return res.project;
+  }
+
+  async function renameProject(id: string, name: string) {
+    const res = await getIpc().send('project:rename', { id, name });
+    projects.value = projects.value.map((p) => (p.id === id ? res.project : p));
+    return res.project;
+  }
+
+  async function deleteProject(id: string) {
+    await getIpc().send('project:delete', { id });
+    projects.value = projects.value.filter((p) => p.id !== id);
+    if (currentProjectId.value === id) {
+      currentProjectId.value = projects.value[0]?.id ?? '';
+    }
+  }
+
+  async function createWorkspace(name: string) {
+    const res = await getIpc().send('workspace:create', {
+      projectId: currentProjectId.value,
+      name
+    });
+    return res.workspace;
+  }
+
+  async function renameWorkspace(id: string, name: string) {
+    const res = await getIpc().send('workspace:rename', { id, name });
+    return res.workspace;
+  }
+
+  async function deleteWorkspace(id: string) {
+    await getIpc().send('workspace:delete', { id });
+  }
+
   async function loadNav() {
     if (!currentProjectId.value) {
       return;
@@ -39,5 +77,18 @@ export const useProjectStore = defineStore('project', () => {
     return res;
   }
 
-  return { projects, currentProjectId, nav, loadProjects, selectProject, loadNav };
+  return {
+    projects,
+    currentProjectId,
+    nav,
+    loadProjects,
+    selectProject,
+    loadNav,
+    createProject,
+    renameProject,
+    deleteProject,
+    createWorkspace,
+    renameWorkspace,
+    deleteWorkspace
+  };
 });

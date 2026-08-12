@@ -94,3 +94,265 @@ textarea {
   width: 11px;
   height: 11px;
 }
+
+/* ===== Sidebar ===== */
+.ferry-project-menu {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.ferry-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #ddd;
+}
+
+.ferry-menu-row:hover {
+  background: var(--ferry-control);
+}
+
+.ferry-menu-row.active {
+  color: #fff;
+}
+
+.ferry-menu-row.danger {
+  color: var(--ferry-danger);
+}
+
+.ferry-menu-sep {
+  height: 1px;
+  background: #3a3a3a;
+  margin: 6px 4px;
+}
+
+.ferry-section-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ferry-text-muted);
+  margin-bottom: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ferry-section-row:hover {
+  color: #ccc;
+}
+
+.ferry-count {
+  font-size: 11px;
+  color: #666;
+  background: #222;
+  padding: 0 7px;
+  border-radius: 10px;
+}
+
+.ferry-hover-op {
+  opacity: 0;
+  color: var(--ferry-text-dim);
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 13px;
+}
+
+.group:hover .ferry-hover-op,
+.ferry-section-row:hover .ferry-hover-op {
+  opacity: 1;
+}
+
+.ferry-hover-op:hover {
+  color: #fff;
+}
+
+.ferry-tree-row,
+.ferry-config-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 6px;
+  border-radius: 8px;
+  color: #ddd;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ferry-tree-row:hover,
+.ferry-config-row:hover {
+  background: #222;
+}
+
+.ferry-config-row {
+  margin: 3px 0;
+  padding: 8px 10px;
+}
+
+.ferry-config-row.active {
+  background: var(--ferry-control);
+  color: #fff;
+}
+
+.ferry-badge {
+  font-size: 11px;
+  color: var(--ferry-text-dim);
+}
+
+.ferry-badge.missing {
+  color: var(--ferry-danger);
+}
+
+.ferry-hint {
+  color: var(--ferry-text-muted);
+  font-size: 13px;
+  padding: 2px 6px;
+}
+
+.ferry-nav-row {
+  padding: 9px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #aaa;
+  font-size: 13px;
+  margin: 2px 0;
+}
+
+.ferry-nav-row:hover {
+  background: #222;
+  color: #fff;
+}
+
+.ferry-nav-row.active {
+  background: rgba(47, 111, 235, 0.13);
+  color: #fff;
+  border: 1px solid var(--ferry-primary);
+}
+
+/* ===== Context Menu ===== */
+.ferry-ctx-menu {
+  position: fixed;
+  z-index: 100;
+  min-width: 180px;
+  background: #252525;
+  border: 1px solid var(--ferry-border);
+  border-radius: var(--ferry-radius);
+  padding: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.ferry-ctx-item {
+  padding: 9px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #ddd;
+  font-size: 13px;
+}
+
+.ferry-ctx-item:hover {
+  background: var(--ferry-control);
+  color: #fff;
+}
+
+.ferry-ctx-item.danger {
+  color: var(--ferry-danger);
+}
+
+.ferry-ctx-item.disabled {
+  color: #666;
+  cursor: not-allowed;
+}
+
+.ferry-ctx-item.disabled:hover {
+  background: transparent;
+  color: #666;
+}
+
+/* ===== Modal ===== */
+.ferry-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ferry-modal {
+  width: 480px;
+  max-width: 92vw;
+  background: #252525;
+  border: 1px solid var(--ferry-border);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+.ferry-modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.ferry-modal-message {
+  color: var(--ferry-text-muted);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.ferry-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.ferry-btn {
+  background: var(--ferry-control);
+  color: var(--ferry-text);
+  padding: 9px 16px;
+  border-radius: var(--ferry-radius);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.ferry-btn:hover {
+  background: #3a3a3a;
+}
+
+.ferry-btn.primary {
+  background: var(--ferry-primary);
+  color: #fff;
+}
+
+.ferry-btn.primary:hover {
+  background: var(--ferry-primary-hover);
+}
+
+.ferry-btn.danger {
+  background: var(--ferry-danger);
+  color: #fff;
+}
+
+.ferry-input {
+  width: 100%;
+  background: var(--ferry-surface);
+  border: 1px solid #555;
+  color: var(--ferry-text);
+  padding: 12px;
+  border-radius: var(--ferry-radius);
+  outline: none;
+}
+
+.ferry-input:focus {
+  border-color: var(--ferry-primary);
+  box-shadow: 0 0 0 3px rgba(47, 111, 235, 0.18);
+}
+
+.ferry-input::placeholder {
+  color: var(--ferry-text-dim);
+}

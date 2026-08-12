@@ -60,7 +60,8 @@ export function createWebViewTransport(): IpcTransport {
 
 export function createIpcClient(
   transport: IpcTransport,
-  defaultTimeoutMs = 10000
+  defaultTimeoutMs = 10000,
+  onLatency?: (ms: number) => void
 ): IpcClient {
   let seq = 0;
   const inflight = new Map<string, Inflight>();
@@ -77,6 +78,9 @@ export function createIpcClient(
     }
     if (!data.requestId) {
       return;
+    }
+    if (typeof data.latencyMs === 'number') {
+      onLatency?.(data.latencyMs);
     }
     const item = inflight.get(data.requestId);
     if (!item) {

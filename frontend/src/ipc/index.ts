@@ -6,13 +6,20 @@ export * from './mock';
 export * from './types';
 
 let activeClient: IpcClient | null = null;
+let latencyListener: ((ms: number) => void) | null = null;
+
+/** 注册全局 IPC 延迟回调（状态栏显示用）。 */
+export function setIpcLatencyListener(listener: ((ms: number) => void) | null): void {
+  latencyListener = listener;
+}
 
 /** 获取应用级 IPC 单例；非浏览器环境（Vitest）回退为无操作传输，测试可显式替换。 */
 export function getIpc(): IpcClient {
   if (!activeClient) {
+    const onLatency = (ms: number) => latencyListener?.(ms);
     activeClient =
       typeof window !== 'undefined' && window.external
-        ? createIpcClient(createWebViewTransport())
+        ? createIpcClient(createWebViewTransport(), 10000, onLatency)
         : createIpcClient({
             send() {
               /* 无操作 */
@@ -20,7 +27,7 @@ export function getIpc(): IpcClient {
             onReceive() {
               /* 无操作 */
             }
-          });
+          }, 10000, onLatency);
   }
   return activeClient;
 }

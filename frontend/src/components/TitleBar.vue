@@ -1,7 +1,21 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useWindowStore } from '../stores/window';
+import { useProjectStore } from '../stores/project';
+import { useConfigStore } from '../stores/config';
 
 const windowStore = useWindowStore();
+const projectStore = useProjectStore();
+const configStore = useConfigStore();
+
+const breadcrumb = computed(() => {
+  const project = projectStore.projects.find((p) => p.id === projectStore.currentProjectId);
+  if (!configStore.current) {
+    return project?.name ?? '';
+  }
+  const workspace = projectStore.nav.workspaces.find((w) => w.id === configStore.workspaceId);
+  return `${project?.name ?? '项目'} / ${workspace?.name ?? '未归类'} / ${configStore.current.name}`;
+});
 
 function onBarMouseDown(event: MouseEvent) {
   if ((event.target as HTMLElement).closest('button')) return;
@@ -22,6 +36,7 @@ function onBarDblClick(event: MouseEvent) {
     @dblclick="onBarDblClick"
   >
     <span class="text-xs text-[var(--ferry-text-muted)]">Ferry</span>
+    <span class="flex-1 truncate text-center text-xs text-[#bbb]">{{ breadcrumb }}</span>
     <span class="flex items-center gap-0.5">
       <button class="win-btn" title="最小化" @click="windowStore.minimize()">
         <svg viewBox="0 0 12 12"><path d="M1 6h10" stroke="currentColor" stroke-width="1.2" /></svg>
