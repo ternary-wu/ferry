@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Ferry.App": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "FERRY_UI_NEW": "1"
+      }
+    }
+  }
+}
