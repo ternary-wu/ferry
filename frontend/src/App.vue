@@ -1,21 +1,35 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { onMounted, watch } from 'vue';
 import TitleBar from './components/TitleBar.vue';
 import StatusBar from './components/StatusBar.vue';
 import Sidebar from './components/Sidebar.vue';
 import ContextMenu from './components/ContextMenu.vue';
 import ModalHost from './components/ModalHost.vue';
 import WizardModal from './components/WizardModal.vue';
+import SourceDock from './components/SourceDock.vue';
 import { useAppStore } from './stores/app';
 import { useProjectStore } from './stores/project';
 import { useSettingsStore } from './stores/settings';
 import { useUiStore } from './stores/ui';
+import { useDockStore } from './stores/dock';
+import { useConfigStore } from './stores/config';
 import { setIpcLatencyListener } from './ipc';
 
 const app = useAppStore();
 const projectStore = useProjectStore();
 const settingsStore = useSettingsStore();
 const ui = useUiStore();
+const dock = useDockStore();
+const configStore = useConfigStore();
+
+watch(
+  () => configStore.isOpen,
+  (isOpen) => {
+    if (!isOpen) {
+      dock.closeDock();
+    }
+  }
+);
 
 onMounted(async () => {
   setIpcLatencyListener((ms) => app.setLatency(ms));
@@ -59,10 +73,12 @@ onMounted(async () => {
     <TitleBar />
     <div class="flex min-h-0 flex-1">
       <Sidebar />
-      <main class="min-w-0 flex-1 overflow-hidden bg-[var(--ferry-bg)]">
-        <RouterView />
+      <main class="flex min-w-0 flex-1 overflow-hidden bg-[var(--ferry-bg)]">
+        <div v-show="!dock.maximized" class="min-w-0 flex-1 overflow-hidden">
+          <RouterView />
+        </div>
+        <SourceDock v-if="dock.open" />
       </main>
-      <aside class="ferry-dock hidden w-[42%] shrink-0 border-l border-[var(--ferry-border-soft)] bg-[#181818]"></aside>
     </div>
     <StatusBar />
     <ContextMenu />

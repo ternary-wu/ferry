@@ -3,10 +3,12 @@ import { computed, watch } from 'vue';
 import FieldNode from '../components/field/FieldNode.vue';
 import { useAppStore } from '../stores/app';
 import { useConfigStore } from '../stores/config';
+import { useDockStore } from '../stores/dock';
 import { loadLocal } from '../utils/storage';
 
 const configStore = useConfigStore();
 const appStore = useAppStore();
+const dock = useDockStore();
 
 const templateName = computed(() =>
   configStore.current ? loadLocal<string>(`ferry.tplCfg.${configStore.current.id}`, '') : ''
@@ -44,6 +46,14 @@ watch(
         class="ferry-field-tool ferry-field-search"
         placeholder="搜索字段…"
       />
+      <button
+        class="ferry-btn small"
+        :class="{ active: dock.open }"
+        title="源码 Dock"
+        @click="dock.toggle()"
+      >
+        源码
+      </button>
       <button class="ferry-btn small" @click="configStore.collapseAll()">折叠全部</button>
       <button class="ferry-btn small" @click="configStore.expandAll()">展开全部</button>
     </div>
