@@ -42,6 +42,22 @@ export const useConfigStore = defineStore('config', () => {
     templates.value = [];
   }
 
+  function applyFormResult(data: {
+    snapshot: FormFieldSnapshot[];
+    sourceText?: string | null;
+    errors: string[];
+    unrecognized?: string[];
+  }) {
+    snapshot.value = data.snapshot;
+    if (data.sourceText !== undefined && data.sourceText !== null) {
+      sourceText.value = data.sourceText;
+    }
+    errors.value = data.errors;
+    if (data.unrecognized) {
+      unrecognized.value = data.unrecognized;
+    }
+  }
+
   return {
     current,
     workspaceId,
@@ -54,6 +70,7 @@ export const useConfigStore = defineStore('config', () => {
     templates,
     isOpen,
     open,
-    close
+    close,
+    applyFormResult
   };
 });

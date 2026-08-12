@@ -356,3 +356,190 @@ textarea {
 .ferry-input::placeholder {
   color: var(--ferry-text-dim);
 }
+
+/* ===== Welcome ===== */
+.ferry-welcome-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--ferry-primary), #7c3aed);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.ferry-welcome-btn {
+  padding: 14px 28px;
+  border-radius: 14px;
+  font-size: 15px;
+  margin-top: 8px;
+}
+
+.ferry-recent-chip {
+  background: var(--ferry-card);
+  border: 1px solid var(--ferry-border);
+  border-radius: 10px;
+  padding: 8px 18px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #ddd;
+}
+
+.ferry-recent-chip:hover {
+  border-color: var(--ferry-primary);
+  color: #fff;
+}
+
+/* ===== Wizard ===== */
+.ferry-wizard {
+  position: relative;
+  width: 600px;
+  max-width: 92vw;
+  max-height: 86vh;
+  overflow-y: auto;
+  background: #252525;
+  border: 1px solid var(--ferry-border);
+  border-radius: 16px;
+  padding: 26px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+.ferry-wizard-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--ferry-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ferry-wizard-close:hover {
+  background: #3a3a3a;
+  color: #fff;
+}
+
+.ferry-wizard-close svg {
+  width: 13px;
+  height: 13px;
+}
+
+.ferry-wizard-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 150px;
+  margin: 0 auto 16px;
+}
+
+.ferry-ws-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #666;
+  flex-shrink: 0;
+}
+
+.ferry-ws-dot.active {
+  border-color: var(--ferry-primary);
+}
+
+.ferry-ws-dot.done {
+  background: var(--ferry-primary);
+  border-color: var(--ferry-primary);
+}
+
+.ferry-ws-dot.clickable {
+  cursor: pointer;
+}
+
+.ferry-ws-line {
+  flex: 1;
+  height: 1px;
+  background: #3a3a3a;
+}
+
+.ferry-wizard-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.ferry-wizard-sub {
+  color: var(--ferry-text-muted);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.ferry-mini-label {
+  font-size: 11px;
+  color: var(--ferry-text-muted);
+  margin: 16px 0 4px;
+}
+
+.ferry-wizard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.ferry-option {
+  background: var(--ferry-control);
+  padding: 13px 14px;
+  border-radius: var(--ferry-radius);
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.ferry-option:hover {
+  background: #3a3a3a;
+}
+
+.ferry-option.active {
+  background: rgba(47, 111, 235, 0.13);
+  border-color: var(--ferry-primary);
+}
+
+.ferry-option-name {
+  font-size: 13px;
+  color: var(--ferry-text);
+}
+
+.ferry-option-name small {
+  color: var(--ferry-text-muted);
+  font-size: 11px;
+}
+
+.ferry-option-desc {
+  color: var(--ferry-text-muted);
+  font-size: 12px;
+  margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ferry-wizard-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.ferry-wizard-select {
+  margin-top: 10px;
+}
+
+.ferry-wizard-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

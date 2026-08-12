@@ -5,6 +5,7 @@ import { useProjectStore } from '../stores/project';
 import { useConfigStore } from '../stores/config';
 import { useSettingsStore } from '../stores/settings';
 import { useUiStore, type ContextMenuItem } from '../stores/ui';
+import { useWizardStore } from '../stores/wizard';
 import type { ConfigInfo, NavWorkspace, ProjectInfo } from '../ipc/types';
 
 const route = useRoute();
@@ -13,6 +14,7 @@ const projectStore = useProjectStore();
 const configStore = useConfigStore();
 const settingsStore = useSettingsStore();
 const ui = useUiStore();
+const wizardStore = useWizardStore();
 
 const projectMenuOpen = ref(false);
 const wsCollapsed = ref(false);
@@ -111,7 +113,7 @@ async function renameWorkspace(workspace: NavWorkspace) {
 
 function workspaceMenuItems(workspace: NavWorkspace): ContextMenuItem[] {
   return [
-    { text: '快速新建配置', disabled: true },
+    { text: '快速新建配置', onClick: () => wizardStore.openWizard({ workspaceId: workspace.id }) },
     { text: '重命名', onClick: () => void renameWorkspace(workspace) },
     { text: '导出存档', disabled: true },
     { text: '删除', danger: true, disabled: true }
@@ -201,7 +203,7 @@ function goHome() {
         <div class="ferry-section-row" @click="wsCollapsed = !wsCollapsed">
           <span>工作空间</span>
           <span class="flex-1"></span>
-          <span class="ferry-hover-op" title="新建配置（P4 实现）">＋</span>
+          <span class="ferry-hover-op" title="新建配置" @click.stop="wizardStore.openWizard()">＋</span>
           <span class="text-[10px] text-[var(--ferry-text-dim)]">{{ wsCollapsed ? '▸' : '▾' }}</span>
         </div>
         <div v-if="!wsCollapsed" class="mt-1">
@@ -214,7 +216,11 @@ function goHome() {
             >
               <span class="text-[10px] text-[var(--ferry-text-dim)]">{{ isWsOpen(ws.id) ? '▾' : '▸' }}</span>
               <span class="name flex-1 truncate">{{ ws.name }}</span>
-              <span class="ferry-hover-op" title="快速新建配置（P4 实现）">＋</span>
+              <span
+                class="ferry-hover-op"
+                title="快速新建配置"
+                @click.stop="wizardStore.openWizard({ workspaceId: ws.id })"
+              >＋</span>
               <span class="ferry-hover-op" @click.stop="openWorkspaceMenu($event, ws)">⋯</span>
             </div>
             <div v-if="isWsOpen(ws.id)" class="pl-3.5">
@@ -242,7 +248,7 @@ function goHome() {
           <span>配置</span>
           <span class="ferry-count">{{ projectStore.nav.unassigned.length }}</span>
           <span class="flex-1"></span>
-          <span class="ferry-hover-op" title="新建未归类配置（P4 实现）">＋</span>
+          <span class="ferry-hover-op" title="新建未归类配置" @click.stop="wizardStore.openWizard()">＋</span>
           <span class="text-[10px] text-[var(--ferry-text-dim)]">{{ cfgCollapsed ? '▸' : '▾' }}</span>
         </div>
         <div v-if="!cfgCollapsed" class="mt-1">
