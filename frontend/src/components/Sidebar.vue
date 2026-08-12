@@ -602,16 +602,6 @@ function configRowClass(config: ConfigInfo, workspaceId: string) {
             </div>
           </div>
         </div>
-        <div
-          v-if="dragSession"
-          class="ferry-ws-drop-zone"
-          :class="{ 'drag-over': dropTarget?.mode === 'create-workspace' }"
-          @dragover.prevent="onCreateZoneDragOver"
-          @dragleave="onCreateZoneDragLeave"
-          @drop.prevent.stop="onCreateWorkspaceDrop"
-        >
-          ＋ 创建工作空间（拖到此处创建并移入）
-        </div>
       </section>
 
       <section
@@ -651,6 +641,17 @@ function configRowClass(config: ConfigInfo, workspaceId: string) {
           </div>
         </div>
       </section>
+
+      <div
+        v-if="dragSession"
+        class="ferry-ws-drop-zone"
+        :class="{ 'drag-over': dropTarget?.mode === 'create-workspace' }"
+        @dragover.prevent="onCreateZoneDragOver"
+        @dragleave="onCreateZoneDragLeave"
+        @drop.prevent.stop="onCreateWorkspaceDrop"
+      >
+        ＋ 创建工作空间（拖到此处创建并移入）
+      </div>
 
       <div class="flex-1"></div>
       <div class="ferry-nav-row" @click="goSettings">⚙ 设置</div>

@@ -137,7 +137,6 @@ textarea {
   font-size: 12px;
   color: var(--ferry-text-muted);
   margin-bottom: 8px;
-  cursor: pointer;
   user-select: none;
 }
 
@@ -178,7 +177,6 @@ textarea {
   padding: 8px 6px;
   border-radius: 8px;
   color: #ddd;
-  cursor: pointer;
   user-select: none;
 }
 
@@ -416,10 +414,6 @@ textarea {
 }
 
 /* ===== Sidebar Drag & Drop ===== */
-.ferry-config-row[draggable='true'] {
-  cursor: grab;
-}
-
 .ferry-config-row.dragging-source {
   opacity: 0.35;
 }
@@ -440,9 +434,6 @@ textarea {
 }
 
 .ferry-ws-drop-zone {
-  position: sticky;
-  bottom: 8px;
-  z-index: 2;
   margin-top: 8px;
   border: 1px dashed #555;
   border-radius: 10px;
@@ -450,7 +441,6 @@ textarea {
   text-align: center;
   color: var(--ferry-text-muted);
   font-size: 13px;
-  cursor: pointer;
   background: var(--ferry-surface);
 }
 
