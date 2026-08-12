@@ -57,6 +57,8 @@ public sealed class WindowController
     private int _minW;
     private int _minH;
     private bool _maximized;
+    private RECT _normalRect;
+    private bool _hasNormalRect;
     private SUBCLASSPROC? _subclassProc;
     private Timer? _saveTimer;
 
@@ -67,7 +69,7 @@ public sealed class WindowController
         _statePath = Path.Combine(appData, "Ferry", "window.json");
     }
 
-    public bool IsMaximized => _window.Maximized;
+    public bool IsMaximized => _maximized;
 
     /// <summary>注册窗口生命周期事件；须在窗口创建（Load）之前调用。</summary>
     public void Initialize()
@@ -83,7 +85,21 @@ public sealed class WindowController
 
     public void Minimize() => _window.SetMinimized(true);
 
-    public void ToggleMaximize() => _window.SetMaximized(!_window.Maximized);
+    /// <summary>
+    /// 工作区最大化（不覆盖任务栏）：最大化 = 填充当前显示器工作区，
+    /// 还原 = 恢复最大化前的位置与尺寸；与 Dock「全占」严格区分。
+    /// </summary>
+    public void ToggleMaximize()
+    {
+        if (_maximized)
+        {
+            RestoreFromMaximize();
+        }
+        else
+        {
+            MaximizeToWorkArea();
+        }
+    }
 
     public void Close() => _window.Close();
 
@@ -96,9 +112,77 @@ public sealed class WindowController
         var hwnd = GetNativeHandle();
         if (hwnd != IntPtr.Zero)
         {
+            // WebView2 子窗口可能持有鼠标捕获，不释放会导致 WM_NCLBUTTONDOWN 拖拽不生效
+            ReleaseCapture();
             GetCursorPos(out var pt);
             var lParam = new IntPtr(((pt.Y & 0xFFFF) << 16) | (pt.X & 0xFFFF));
             SendMessage(hwnd, WmNcLButtonDown, new IntPtr(HtCaption), lParam);
+        }
+    }
+
+    private void MaximizeToWorkArea()
+    {
+        var hwnd = GetNativeHandle();
+        if (hwnd == IntPtr.Zero)
+        {
+            return;
+        }
+        if (GetWindowRect(hwnd, out var rect))
+        {
+            _normalRect = rect;
+            _hasNormalRect = true;
+        }
+        var monitor = MonitorFromWindow(hwnd, MonitorDefaultToNearest);
+        var info = new MONITORINFO { cbSize = (uint)Marshal.SizeOf<MONITORINFO>() };
+        if (!GetMonitorInfo(monitor, ref info))
+        {
+            return;
+        }
+        _maximized = true;
+        SetWindowPos(
+            hwnd,
+            IntPtr.Zero,
+            info.rcWork.Left,
+            info.rcWork.Top,
+            info.rcWork.Right - info.rcWork.Left,
+            info.rcWork.Bottom - info.rcWork.Top,
+            SwpNoZOrder | SwpNoActivate);
+        ScheduleSave();
+    }
+
+    private void RestoreFromMaximize()
+    {
+        var hwnd = GetNativeHandle();
+        if (hwnd == IntPtr.Zero)
+        {
+            return;
+        }
+        _maximized = false;
+        if (_hasNormalRect)
+        {
+            SetWindowPos(
+                hwnd,
+                IntPtr.Zero,
+                _normalRect.Left,
+                _normalRect.Top,
+                _normalRect.Right - _normalRect.Left,
+                _normalRect.Bottom - _normalRect.Top,
+                SwpNoZOrder | SwpNoActivate);
+        }
+        ScheduleSave();
+    }
+
+    /// <summary>去掉 DWM 标准边框残留（顶部白边 / 非客户区残留的常见来源）。</summary>
+    private void RemoveFrameBorder(IntPtr hwnd)
+    {
+        try
+        {
+            var margins = new MARGINS { Left = -1, Right = -1, Top = -1, Bottom = -1 };
+            DwmExtendFrameIntoClientArea(hwnd, ref margins);
+        }
+        catch
+        {
+            // DWM 不可用（降级模式）时忽略
         }
     }
 
@@ -140,6 +224,7 @@ public sealed class WindowController
         _maximized = _window.Maximized;
 
         EnsureWindowStyles(_hwnd);
+        RemoveFrameBorder(_hwnd);
         _subclassProc = SubclassProc;
         SetWindowSubclass(_hwnd, _subclassProc, new UIntPtr(1), UIntPtr.Zero);
         ApplyWindowState();
@@ -289,7 +374,7 @@ public sealed class WindowController
             _window.SetLocation(new Point(left, top));
             if (state.Maximized)
             {
-                _window.SetMaximized(true);
+                MaximizeToWorkArea();
             }
             return;
         }
@@ -415,6 +500,15 @@ public sealed class WindowController
     }
 
     [StructLayout(LayoutKind.Sequential)]
+    private struct MARGINS
+    {
+        public int Left;
+        public int Right;
+        public int Top;
+        public int Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
     private struct MINMAXINFO
     {
         public POINT ptReserved;
@@ -497,6 +591,15 @@ public sealed class WindowController
 
     [DllImport("user32.dll")]
     private static extern IntPtr MonitorFromRect(ref RECT lprc, uint dwFlags);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+    [DllImport("user32.dll")]
+    private static extern bool ReleaseCapture();
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmExtendFrameIntoClientArea(IntPtr hwnd, ref MARGINS pMarInset);
 
     [DllImport("user32.dll")]
     private static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);

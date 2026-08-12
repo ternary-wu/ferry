@@ -16,7 +16,8 @@ export const useWindowStore = defineStore('window', () => {
   }
 
   function beginDrag() {
-    return getIpc().send('window:drag', {});
+    // BeginNativeDrag 是同步模态拖拽循环，拖拽期间不回包，fire-and-forget 避免 10s 超时误报
+    return getIpc().send('window:drag', {}, { fireAndForget: true });
   }
 
   return { minimize, toggleMaximize, close, beginDrag };
