@@ -285,6 +285,12 @@ FakesAssemblies/
 .ntvs_analysis.dat
 node_modules/
 
+# Ferry 新前端构建产物
+frontend/dist/
+
+# pnpm 本地包缓存（本机生成，不入库）
+.pnpm-store/
+
 # Visual Studio 6 build log
 *.plg
 

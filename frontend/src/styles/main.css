@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+:root {
+  --ferry-bg: #212121;
+  --ferry-surface: #171717;
+  --ferry-card: #2b2b2b;
+  --ferry-control: #303030;
+  --ferry-border: #444;
+  --ferry-border-soft: #333;
+  --ferry-text: #eee;
+  --ferry-text-muted: #999;
+  --ferry-text-dim: #888;
+  --ferry-primary: #2f6feb;
+  --ferry-primary-hover: #3a7bf0;
+  --ferry-danger: #f85149;
+  --ferry-ok: #3fb950;
+  --ferry-radius: 10px;
+  --ferry-radius-lg: 14px;
+  --ferry-mono: Consolas, "Cascadia Code", monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  overflow: hidden;
+  background: var(--ferry-bg);
+  color: var(--ferry-text);
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3a3a3a;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.win-btn {
+  width: 40px;
+  height: 31px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #aaa;
+}
+
+.win-btn:hover {
+  background: #3a3a3a;
+  color: #fff;
+}
+
+.win-btn.close:hover {
+  background: var(--ferry-danger);
+  color: #fff;
+}
+
+.win-btn svg {
+  width: 11px;
+  height: 11px;
+}
