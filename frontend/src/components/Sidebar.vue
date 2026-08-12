@@ -27,7 +27,6 @@ const cfgCollapsed = ref(false);
 const wsOpen = ref<Record<string, boolean>>({});
 const dragSession = ref<{ config: ConfigInfo; sourceWorkspaceId: string } | null>(null);
 const dropTarget = ref<DropTargetState | null>(null);
-const createZoneArmed = ref(false);
 
 const isSettings = computed(() => route.name === 'settings');
 const currentProject = computed(() =>
@@ -341,17 +340,9 @@ function applyLocalOrder(workspaceId: string, ids: string[]) {
 function onConfigDragStart(event: DragEvent, config: ConfigInfo, workspaceId: string) {
   dragSession.value = { config, sourceWorkspaceId: workspaceId };
   dropTarget.value = null;
-  createZoneArmed.value = false;
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', config.id);
-  }
-}
-
-/** 拖拽进入 Workspace 区域后武装 Drop Zone；进入后保持到 dragend/drop/dragcancel。 */
-function armCreateZone() {
-  if (dragSession.value) {
-    createZoneArmed.value = true;
   }
 }
 
@@ -388,9 +379,6 @@ function onWsDragOver(workspaceId: string) {
     return;
   }
   dropTarget.value = { mode: workspaceId === '' ? 'unassigned' : 'workspace', workspaceId };
-  if (workspaceId !== '') {
-    armCreateZone();
-  }
 }
 
 function onWsDragLeave(event: DragEvent, workspaceId: string) {
@@ -402,21 +390,9 @@ function onWsDragLeave(event: DragEvent, workspaceId: string) {
   }
 }
 
-/** Workspace 区域空白处：只武装 Drop Zone，不当作排序/移动目标。 */
-function onWorkspaceAreaDragOver() {
-  if (!dragSession.value) {
-    return;
-  }
-  armCreateZone();
-  if (dropTarget.value?.mode !== 'workspace-sort' && dropTarget.value?.mode !== 'unassigned') {
-    dropTarget.value = null;
-  }
-}
-
 function resetDrag() {
   dragSession.value = null;
   dropTarget.value = null;
-  createZoneArmed.value = false;
 }
 
 async function onConfigDrop(workspaceId: string, targetCfgId: string) {
@@ -475,7 +451,6 @@ function onCreateZoneDragOver() {
   if (!dragSession.value) {
     return;
   }
-  armCreateZone();
   dropTarget.value = { mode: 'create-workspace' };
 }
 
@@ -582,7 +557,7 @@ function configRowClass(config: ConfigInfo, workspaceId: string) {
           <span class="ferry-hover-op" title="新建配置" @click.stop="wizardStore.openWizard()">＋</span>
           <span class="text-[10px] text-[var(--ferry-text-dim)]">{{ wsCollapsed ? '▸' : '▾' }}</span>
         </div>
-        <div v-if="!wsCollapsed" class="mt-1" @dragover.prevent="onWorkspaceAreaDragOver">
+        <div v-if="!wsCollapsed" class="mt-1">
           <div v-if="projectStore.nav.workspaces.length === 0" class="ferry-hint">暂无工作空间</div>
           <div v-for="ws in projectStore.nav.workspaces" :key="ws.id" class="group">
             <div
@@ -626,16 +601,16 @@ function configRowClass(config: ConfigInfo, workspaceId: string) {
               </div>
             </div>
           </div>
-          <div
-            v-if="dragSession && createZoneArmed"
-            class="ferry-ws-drop-zone"
-            :class="{ 'drag-over': dropTarget?.mode === 'create-workspace' }"
-            @dragover.prevent="onCreateZoneDragOver"
-            @dragleave="onCreateZoneDragLeave"
-            @drop.prevent.stop="onCreateWorkspaceDrop"
-          >
-            ＋ 创建工作空间（拖到此处创建并移入）
-          </div>
+        </div>
+        <div
+          v-if="dragSession"
+          class="ferry-ws-drop-zone"
+          :class="{ 'drag-over': dropTarget?.mode === 'create-workspace' }"
+          @dragover.prevent="onCreateZoneDragOver"
+          @dragleave="onCreateZoneDragLeave"
+          @drop.prevent.stop="onCreateWorkspaceDrop"
+        >
+          ＋ 创建工作空间（拖到此处创建并移入）
         </div>
       </section>
 

@@ -440,6 +440,9 @@ textarea {
 }
 
 .ferry-ws-drop-zone {
+  position: sticky;
+  bottom: 8px;
+  z-index: 2;
   margin-top: 8px;
   border: 1px dashed #555;
   border-radius: 10px;
@@ -448,6 +451,7 @@ textarea {
   color: var(--ferry-text-muted);
   font-size: 13px;
   cursor: pointer;
+  background: var(--ferry-surface);
 }
 
 .ferry-ws-drop-zone.drag-over {
