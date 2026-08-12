@@ -44,6 +44,9 @@ public sealed class WindowController
     private const uint SwpNoZOrder = 0x0004;
     private const uint SwpNoActivate = 0x0010;
     private const uint MonitorDefaultToNearest = 2;
+    private const int DwmwaWindowCornerPreference = 33;
+    private const int DwmcpDoNotRound = 1;
+    private const int DwmcpRound = 2;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -78,8 +81,18 @@ public sealed class WindowController
         _window.RegisterWindowCreatedHandler(OnWindowCreated);
         _window.RegisterLocationChangedHandler((_, _) => ScheduleSave());
         _window.RegisterSizeChangedHandler((_, _) => ScheduleSave());
-        _window.RegisterMaximizedHandler((_, _) => { _maximized = true; ScheduleSave(); });
-        _window.RegisterRestoredHandler((_, _) => { _maximized = false; ScheduleSave(); });
+        _window.RegisterMaximizedHandler((_, _) =>
+        {
+            _maximized = true;
+            ApplyCornerPreference();
+            ScheduleSave();
+        });
+        _window.RegisterRestoredHandler((_, _) =>
+        {
+            _maximized = false;
+            ApplyCornerPreference();
+            ScheduleSave();
+        });
         _window.RegisterMinimizedHandler((_, _) => ScheduleSave());
         _window.RegisterWindowClosingHandler(OnWindowClosing);
     }
@@ -148,6 +161,7 @@ public sealed class WindowController
             info.rcWork.Right - info.rcWork.Left,
             info.rcWork.Bottom - info.rcWork.Top,
             SwpNoZOrder | SwpNoActivate);
+        ApplyCornerPreference();
         ScheduleSave();
     }
 
@@ -170,6 +184,7 @@ public sealed class WindowController
                 _normalRect.Bottom - _normalRect.Top,
                 SwpNoZOrder | SwpNoActivate);
         }
+        ApplyCornerPreference();
         ScheduleSave();
     }
 
@@ -261,6 +276,28 @@ public sealed class WindowController
         _subclassProc = SubclassProc;
         SetWindowSubclass(_hwnd, _subclassProc, new UIntPtr(1), UIntPtr.Zero);
         ApplyWindowState();
+        ApplyCornerPreference();
+    }
+
+    /// <summary>
+    /// 现代圆角：普通状态 8px 圆角（Windows 11 DWM），工作区最大化时切直角，
+    /// 避免圆角贴着屏幕边缘产生缺口。
+    /// </summary>
+    private void ApplyCornerPreference()
+    {
+        try
+        {
+            var preference = _maximized ? DwmcpDoNotRound : DwmcpRound;
+            DwmSetWindowAttribute(
+                _hwnd,
+                DwmwaWindowCornerPreference,
+                ref preference,
+                Marshal.SizeOf<int>());
+        }
+        catch
+        {
+            // 旧系统不支持时保持直角
+        }
     }
 
     private bool OnWindowClosing(object? sender, EventArgs e)
