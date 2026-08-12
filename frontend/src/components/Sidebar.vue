@@ -5,7 +5,10 @@ import { useProjectStore } from '../stores/project';
 import { useConfigStore } from '../stores/config';
 import { useSettingsStore } from '../stores/settings';
 import { useUiStore, type ContextMenuItem } from '../stores/ui';
+import { useAppStore } from '../stores/app';
+import { useNotificationStore } from '../stores/notification';
 import { useWizardStore } from '../stores/wizard';
+import { getIpc } from '../ipc';
 import type { ConfigInfo, NavWorkspace, ProjectInfo } from '../ipc/types';
 
 const route = useRoute();
@@ -14,12 +17,18 @@ const projectStore = useProjectStore();
 const configStore = useConfigStore();
 const settingsStore = useSettingsStore();
 const ui = useUiStore();
+const app = useAppStore();
+const notifications = useNotificationStore();
 const wizardStore = useWizardStore();
 
 const projectMenuOpen = ref(false);
 const wsCollapsed = ref(false);
 const cfgCollapsed = ref(false);
 const wsOpen = ref<Record<string, boolean>>({});
+const dragConfig = ref<{ id: string; workspaceId: string; name: string } | null>(null);
+const dropOverWs = ref<string | null>(null);
+const dropOverCfg = ref<string | null>(null);
+const dropBefore = ref(true);
 
 const isSettings = computed(() => route.name === 'settings');
 const currentProject = computed(() =>
@@ -111,26 +120,161 @@ async function renameWorkspace(workspace: NavWorkspace) {
   await projectStore.loadNav();
 }
 
+function joinPath(dir: string, name: string): string {
+  if (!dir) {
+    return name;
+  }
+  return dir.endsWith('\\') || dir.endsWith('/') ? dir + name : dir + '\\' + name;
+}
+
+async function exportConfig(config: ConfigInfo, workspaceId: string) {
+  const defaultPath = joinPath(settingsStore.settings.defaultPath ?? '', config.name + '.zip');
+  const path = await ui.prompt({ title: '存档包导出路径', defaultValue: defaultPath });
+  if (!path) {
+    return;
+  }
+  try {
+    const res = await getIpc().send('archive:exportConfig', {
+      workspaceId,
+      configId: config.id,
+      path
+    });
+    notifications.add('ok', `已导出：${res.path}`);
+    app.setStatus(`已导出：${res.path}`);
+  } catch (error) {
+    app.setStatus('导出失败：' + (error as Error).message, true);
+  }
+}
+
+async function duplicateConfig(config: ConfigInfo, workspaceId: string) {
+  try {
+    const res = await projectStore.duplicateConfig(config.id, workspaceId);
+    await projectStore.loadNav();
+    notifications.add('ok', `已复制为「${res.name}」`);
+  } catch (error) {
+    app.setStatus('复制失败：' + (error as Error).message, true);
+  }
+}
+
+async function resetConfig(config: ConfigInfo, workspaceId: string) {
+  const ok = await ui.confirm({
+    title: '恢复默认配置',
+    message: `确定将「${config.name}」恢复为插件默认？`
+  });
+  if (!ok) {
+    return;
+  }
+  if (configStore.current?.id !== config.id) {
+    await openConfig(config, workspaceId);
+  }
+  try {
+    await configStore.resetCurrent();
+    app.setStatus(`已恢复默认配置：${config.name}`);
+  } catch (error) {
+    app.setStatus('恢复默认失败：' + (error as Error).message, true);
+  }
+}
+
+async function deleteConfig(config: ConfigInfo, workspaceId: string) {
+  const ok = await ui.confirm({
+    title: '删除配置',
+    message: `确定删除「${config.name}」？将先存档到回收站，可还原。`
+  });
+  if (!ok) {
+    return;
+  }
+  try {
+    const dirRes = await getIpc().send('app:dataDir', {});
+    const zipPath = joinPath(
+      joinPath(dirRes.path, 'trash'),
+      `${config.name}-${Date.now()}.zip`
+    );
+    await getIpc().send('archive:exportConfig', {
+      workspaceId,
+      configId: config.id,
+      path: zipPath
+    });
+    await getIpc().send('config:delete', { workspaceId, configId: config.id });
+    const wasCurrent = configStore.current?.id === config.id;
+    if (wasCurrent) {
+      configStore.close();
+      await router.push('/');
+    }
+    await projectStore.loadNav();
+    notifications.add('ok', `配置「${config.name}」已移入回收站`);
+  } catch (error) {
+    app.setStatus('删除失败：' + (error as Error).message, true);
+  }
+}
+
+async function exportWorkspace(workspace: NavWorkspace) {
+  const defaultPath = joinPath(settingsStore.settings.defaultPath ?? '', workspace.name + '.zip');
+  const path = await ui.prompt({ title: '存档包导出路径', defaultValue: defaultPath });
+  if (!path) {
+    return;
+  }
+  try {
+    const res = await getIpc().send('archive:exportWorkspace', {
+      workspaceId: workspace.id,
+      path
+    });
+    notifications.add('ok', `已导出：${res.path}`);
+  } catch (error) {
+    app.setStatus('导出失败：' + (error as Error).message, true);
+  }
+}
+
+async function deleteWorkspace(workspace: NavWorkspace) {
+  const ok = await ui.confirm({
+    title: '删除工作空间',
+    message: `确定删除「${workspace.name}」？将先存档到回收站，可还原。`
+  });
+  if (!ok) {
+    return;
+  }
+  try {
+    const dirRes = await getIpc().send('app:dataDir', {});
+    const zipPath = joinPath(
+      joinPath(dirRes.path, 'trash'),
+      `${workspace.name}-${Date.now()}.zip`
+    );
+    await getIpc().send('archive:exportWorkspace', {
+      workspaceId: workspace.id,
+      path: zipPath
+    });
+    if (configStore.workspaceId === workspace.id) {
+      configStore.close();
+      await router.push('/');
+    }
+    await projectStore.deleteWorkspace(workspace.id);
+    await projectStore.loadNav();
+    notifications.add('ok', `工作空间「${workspace.name}」已移入回收站`);
+  } catch (error) {
+    app.setStatus('删除失败：' + (error as Error).message, true);
+  }
+}
+
 function workspaceMenuItems(workspace: NavWorkspace): ContextMenuItem[] {
   return [
     { text: '快速新建配置', onClick: () => wizardStore.openWizard({ workspaceId: workspace.id }) },
     { text: '重命名', onClick: () => void renameWorkspace(workspace) },
-    { text: '导出存档', disabled: true },
-    { text: '删除', danger: true, disabled: true }
+    { text: '导出存档', onClick: () => void exportWorkspace(workspace) },
+    { text: '删除', danger: true, onClick: () => void deleteWorkspace(workspace) }
   ];
 }
 
 function configMenuItems(config: ConfigInfo, workspaceId: string): ContextMenuItem[] {
   return [
     { text: '查看', onClick: () => void openConfig(config, workspaceId) },
-    { text: '导出', disabled: true },
-    { text: '复制', disabled: true },
-    { text: '移动', disabled: true },
-    { text: '历史', disabled: true },
-    { text: '回滚', disabled: true },
-    { text: '恢复全部默认配置', disabled: true },
+    { text: '导出', onClick: () => void exportConfig(config, workspaceId) },
+    { text: '复制', onClick: () => void duplicateConfig(config, workspaceId) },
+    { text: '移动', onClick: () => ui.openMove(config, workspaceId) },
+    { text: '历史', onClick: () => ui.openHistory(config, workspaceId) },
+    { text: '回滚', onClick: () => ui.openHistory(config, workspaceId) },
+    { text: '恢复全部默认配置', onClick: () => void resetConfig(config, workspaceId) },
     { text: '推送', disabled: true },
-    { text: '删除', danger: true, disabled: true }
+    { text: '动态模块项', disabled: true },
+    { text: '删除', danger: true, onClick: () => void deleteConfig(config, workspaceId) }
   ];
 }
 
@@ -162,6 +306,187 @@ function goSettings() {
 function goHome() {
   void router.push('/');
 }
+
+// ---------- 拖拽 ----------
+
+function configsOf(workspaceId: string): ConfigInfo[] {
+  return workspaceId === ''
+    ? projectStore.nav.unassigned
+    : projectStore.nav.workspaces.find((w) => w.id === workspaceId)?.configs ?? [];
+}
+
+function applyLocalOrder(workspaceId: string, ids: string[]) {
+  const byId = new Map(configsOf(workspaceId).map((c) => [c.id, c]));
+  const ordered = ids
+    .map((id) => byId.get(id))
+    .filter((c): c is ConfigInfo => Boolean(c));
+  if (workspaceId === '') {
+    projectStore.nav.unassigned = ordered;
+  } else {
+    const ws = projectStore.nav.workspaces.find((w) => w.id === workspaceId);
+    if (ws) {
+      ws.configs = ordered;
+    }
+  }
+}
+
+function onConfigDragStart(event: DragEvent, config: ConfigInfo, workspaceId: string) {
+  dragConfig.value = { id: config.id, workspaceId, name: config.name };
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', config.id);
+  }
+}
+
+function onConfigDragOver(event: DragEvent, workspaceId: string, configId: string) {
+  if (!dragConfig.value) {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  dropOverWs.value = workspaceId;
+  dropOverCfg.value = configId;
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  dropBefore.value = event.clientY < rect.top + rect.height / 2;
+}
+
+function onConfigDragLeave(event: DragEvent, workspaceId: string, configId: string) {
+  if (event.relatedTarget && (event.currentTarget as HTMLElement).contains(event.relatedTarget as Node)) {
+    return;
+  }
+  if (dropOverWs.value === workspaceId && dropOverCfg.value === configId) {
+    dropOverCfg.value = null;
+  }
+}
+
+function onWsDragOver(workspaceId: string) {
+  if (!dragConfig.value) {
+    return;
+  }
+  dropOverWs.value = workspaceId;
+  dropOverCfg.value = null;
+}
+
+function onWsDragLeave(event: DragEvent, workspaceId: string) {
+  if (event.relatedTarget && (event.currentTarget as HTMLElement).contains(event.relatedTarget as Node)) {
+    return;
+  }
+  if (dropOverWs.value === workspaceId && dropOverCfg.value === null) {
+    dropOverWs.value = null;
+  }
+}
+
+function resetDrag() {
+  dragConfig.value = null;
+  dropOverWs.value = null;
+  dropOverCfg.value = null;
+}
+
+async function onConfigDrop(workspaceId: string, targetCfgId: string) {
+  const from = dragConfig.value;
+  if (!from) {
+    resetDrag();
+    return;
+  }
+  if (from.workspaceId === workspaceId && from.id === targetCfgId) {
+    resetDrag();
+    return;
+  }
+  const ids = configsOf(workspaceId)
+    .map((c) => c.id)
+    .filter((id) => !(from.workspaceId === workspaceId && id === from.id));
+  const toIdx = ids.indexOf(targetCfgId);
+  const insertAt = toIdx < 0 ? ids.length : dropBefore.value ? toIdx : toIdx + 1;
+  ids.splice(insertAt, 0, from.id);
+  await commitDrop(workspaceId, ids, from);
+}
+
+async function onWorkspaceDrop(workspaceId: string) {
+  const from = dragConfig.value;
+  if (!from) {
+    resetDrag();
+    return;
+  }
+  const ids = configsOf(workspaceId)
+    .map((c) => c.id)
+    .filter((id) => !(from.workspaceId === workspaceId && id === from.id));
+  ids.push(from.id);
+  await commitDrop(workspaceId, ids, from);
+}
+
+async function commitDrop(
+  workspaceId: string,
+  ids: string[],
+  from: { id: string; workspaceId: string }
+) {
+  resetDrag();
+  try {
+    if (from.workspaceId !== workspaceId) {
+      await projectStore.moveConfig(from.id, workspaceId);
+      if (configStore.current?.id === from.id) {
+        await configStore.open(workspaceId, from.id);
+      }
+    }
+    await projectStore.reorderConfigs(workspaceId, ids);
+    applyLocalOrder(workspaceId, ids);
+  } catch (error) {
+    app.setStatus('拖拽操作失败：' + (error as Error).message, true);
+    await projectStore.loadNav();
+  }
+}
+
+function onCreateZoneDragOver() {
+  if (!dragConfig.value) {
+    return;
+  }
+  dropOverWs.value = '__create__';
+  dropOverCfg.value = null;
+}
+
+function onCreateZoneDragLeave() {
+  if (dropOverWs.value === '__create__') {
+    dropOverWs.value = null;
+  }
+}
+
+async function onCreateWorkspaceDrop() {
+  const from = dragConfig.value;
+  resetDrag();
+  if (!from) {
+    return;
+  }
+  const name = await ui.prompt({ title: '新建工作空间', placeholder: '输入工作空间名称' });
+  if (!name) {
+    return;
+  }
+  try {
+    const ws = await projectStore.createWorkspace(name);
+    await projectStore.moveConfig(from.id, ws.id);
+    if (configStore.current?.id === from.id) {
+      await configStore.open(ws.id, from.id);
+    }
+    await projectStore.loadNav();
+    notifications.add('ok', `已创建并移入「${ws.name}」`);
+  } catch (error) {
+    app.setStatus('创建/移动失败：' + (error as Error).message, true);
+    await projectStore.loadNav();
+  }
+}
+
+function configRowClass(config: ConfigInfo, workspaceId: string) {
+  return {
+    active: configStore.current?.id === config.id,
+    'dragging-source': dragConfig.value?.id === config.id,
+    'drop-before':
+      dropOverWs.value === workspaceId &&
+      dropOverCfg.value === config.id &&
+      dropBefore.value,
+    'drop-after':
+      dropOverWs.value === workspaceId &&
+      dropOverCfg.value === config.id &&
+      !dropBefore.value
+  };
+}
 </script>
 
 <template>
@@ -176,7 +501,7 @@ function goHome() {
           @contextmenu.prevent="openProjectContextMenu"
         >
           <span class="flex-1 truncate text-left">{{ currentProject?.name ?? '选择项目' }}</span>
-          <span class="text-[11px] text-[var(--ferry-text-muted)]">▼</span>
+          <span class="text-[11px] text-[var(--ferry-text-muted)]">▾</span>
         </button>
         <div
           v-if="projectMenuOpen"
@@ -211,8 +536,12 @@ function goHome() {
           <div v-for="ws in projectStore.nav.workspaces" :key="ws.id" class="group">
             <div
               class="ferry-tree-row"
+              :class="{ 'drag-over': dragConfig && dropOverWs === ws.id && dropOverCfg === null }"
               @click="toggleWsOpen(ws.id)"
               @contextmenu.prevent="openWorkspaceMenu($event, ws)"
+              @dragover.prevent="onWsDragOver(ws.id)"
+              @dragleave="onWsDragLeave($event, ws.id)"
+              @drop.prevent.stop="onWorkspaceDrop(ws.id)"
             >
               <span class="text-[10px] text-[var(--ferry-text-dim)]">{{ isWsOpen(ws.id) ? '▾' : '▸' }}</span>
               <span class="name flex-1 truncate">{{ ws.name }}</span>
@@ -229,9 +558,15 @@ function goHome() {
                 v-for="cfg in ws.configs"
                 :key="cfg.id"
                 class="ferry-config-row"
-                :class="{ active: configStore.current?.id === cfg.id }"
+                :class="configRowClass(cfg, ws.id)"
+                draggable="true"
                 @click="openConfig(cfg, ws.id)"
                 @contextmenu.prevent="openConfigMenu($event, cfg, ws.id)"
+                @dragstart="onConfigDragStart($event, cfg, ws.id)"
+                @dragover="onConfigDragOver($event, ws.id, cfg.id)"
+                @dragleave="onConfigDragLeave($event, ws.id, cfg.id)"
+                @drop.prevent.stop="onConfigDrop(ws.id, cfg.id)"
+                @dragend="resetDrag"
               >
                 <span>🌐</span>
                 <span class="name flex-1 truncate">{{ cfg.name }}</span>
@@ -240,10 +575,26 @@ function goHome() {
               </div>
             </div>
           </div>
+          <div
+            v-if="dragConfig"
+            class="ferry-ws-drop-zone"
+            :class="{ 'drag-over': dropOverWs === '__create__' }"
+            @dragover.prevent="onCreateZoneDragOver"
+            @dragleave="onCreateZoneDragLeave"
+            @drop.prevent.stop="onCreateWorkspaceDrop"
+          >
+            ＋ 创建工作空间（拖到此处创建并移入）
+          </div>
         </div>
       </section>
 
-      <section class="mt-6">
+      <section
+        class="ferry-sidebar-drop-target mt-6 rounded-xl"
+        :class="{ 'drag-over': dragConfig && dropOverWs === '' && dropOverCfg === null }"
+        @dragover.prevent="onWsDragOver('')"
+        @dragleave="onWsDragLeave($event, '')"
+        @drop.prevent.stop="onWorkspaceDrop('')"
+      >
         <div class="ferry-section-row" @click="cfgCollapsed = !cfgCollapsed">
           <span>配置</span>
           <span class="ferry-count">{{ projectStore.nav.unassigned.length }}</span>
@@ -257,9 +608,15 @@ function goHome() {
             v-for="cfg in projectStore.nav.unassigned"
             :key="cfg.id"
             class="ferry-config-row"
-            :class="{ active: configStore.current?.id === cfg.id }"
+            :class="configRowClass(cfg, '')"
+            draggable="true"
             @click="openConfig(cfg, '')"
             @contextmenu.prevent="openConfigMenu($event, cfg, '')"
+            @dragstart="onConfigDragStart($event, cfg, '')"
+            @dragover="onConfigDragOver($event, '', cfg.id)"
+            @dragleave="onConfigDragLeave($event, '', cfg.id)"
+            @drop.prevent.stop="onConfigDrop('', cfg.id)"
+            @dragend="resetDrag"
           >
             <span>🌐</span>
             <span class="name flex-1 truncate">{{ cfg.name }}</span>

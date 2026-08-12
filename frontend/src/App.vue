@@ -6,6 +6,8 @@ import Sidebar from './components/Sidebar.vue';
 import ContextMenu from './components/ContextMenu.vue';
 import ModalHost from './components/ModalHost.vue';
 import WizardModal from './components/WizardModal.vue';
+import MoveModal from './components/MoveModal.vue';
+import HistoryModal from './components/HistoryModal.vue';
 import SourceDock from './components/SourceDock.vue';
 import { useAppStore } from './stores/app';
 import { useProjectStore } from './stores/project';
@@ -83,6 +85,8 @@ onMounted(async () => {
     <StatusBar />
     <ContextMenu />
     <ModalHost />
+    <MoveModal />
+    <HistoryModal />
     <WizardModal />
   </div>
 </template>

@@ -197,6 +197,10 @@ export interface ActionMap {
     payload: { projectId: string; workspaceId: string; pluginKey: string; name?: string };
     data: { configId: string };
   };
+  'config:duplicate': {
+    payload: { workspaceId: string; configId: string; name?: string };
+    data: { configId: string; name: string };
+  };
   'config:open': { payload: { workspaceId: string; configId: string }; data: ConfigOpenResult };
   'config:delete': { payload: { workspaceId: string; configId: string }; data: Record<string, never> };
   'config:move': { payload: { configId: string; workspaceId: string }; data: { configId: string } };

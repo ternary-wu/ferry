@@ -68,6 +68,18 @@ export const useProjectStore = defineStore('project', () => {
     await getIpc().send('workspace:delete', { id });
   }
 
+  async function moveConfig(configId: string, workspaceId: string) {
+    return getIpc().send('config:move', { configId, workspaceId });
+  }
+
+  async function duplicateConfig(configId: string, workspaceId: string, name?: string) {
+    return getIpc().send('config:duplicate', { workspaceId, configId, name });
+  }
+
+  async function reorderConfigs(workspaceId: string, configIds: string[]) {
+    return getIpc().send('config:reorder', { workspaceId, configIds });
+  }
+
   async function loadNav() {
     if (!currentProjectId.value) {
       return;
@@ -89,6 +101,9 @@ export const useProjectStore = defineStore('project', () => {
     deleteProject,
     createWorkspace,
     renameWorkspace,
-    deleteWorkspace
+    deleteWorkspace,
+    moveConfig,
+    duplicateConfig,
+    reorderConfigs
   };
 });

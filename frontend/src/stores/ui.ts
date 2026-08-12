@@ -1,5 +1,11 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
+import type { ConfigInfo } from '../ipc/types';
+
+export interface ConfigTarget {
+  config: ConfigInfo;
+  workspaceId: string;
+}
 
 export interface ContextMenuItem {
   text: string;
@@ -26,6 +32,11 @@ export const useUiStore = defineStore('ui', () => {
   let confirmResolver: ((value: boolean) => void) | null = null;
 
   const settingsCategory = ref('general');
+
+  const moveOpen = ref(false);
+  const moveTarget = ref<ConfigTarget | null>(null);
+  const historyOpen = ref(false);
+  const historyTarget = ref<ConfigTarget | null>(null);
 
   function openMenu(items: ContextMenuItem[], x: number, y: number) {
     menuItems.value = items;
@@ -71,6 +82,26 @@ export const useUiStore = defineStore('ui', () => {
     resolver?.(value);
   }
 
+  function openMove(config: ConfigInfo, workspaceId: string) {
+    moveTarget.value = { config, workspaceId };
+    moveOpen.value = true;
+  }
+
+  function closeMove() {
+    moveOpen.value = false;
+    moveTarget.value = null;
+  }
+
+  function openHistory(config: ConfigInfo, workspaceId: string) {
+    historyTarget.value = { config, workspaceId };
+    historyOpen.value = true;
+  }
+
+  function closeHistory() {
+    historyOpen.value = false;
+    historyTarget.value = null;
+  }
+
   return {
     menuOpen,
     menuItems,
@@ -89,6 +120,14 @@ export const useUiStore = defineStore('ui', () => {
     confirmMessage,
     confirm,
     resolveConfirm,
-    settingsCategory
+    settingsCategory,
+    moveOpen,
+    moveTarget,
+    openMove,
+    closeMove,
+    historyOpen,
+    historyTarget,
+    openHistory,
+    closeHistory
   };
 });

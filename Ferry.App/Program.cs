@@ -137,6 +137,7 @@ public static class Program
                 "configs:list" => ConfigsList(ctx, request!),
                 "configs:unassigned" => ConfigsUnassigned(ctx, request!),
                 "config:create" => ConfigCreate(ctx, request!),
+                "config:duplicate" => ConfigDuplicate(ctx, request!),
                 "config:open" => ConfigOpen(ctx, request!),
                 "config:delete" => ConfigDelete(ctx, request!),
                 "config:move" => ConfigMove(ctx, request!),
@@ -390,6 +391,19 @@ public static class Program
             values: session.GetState().Values,
             enabled: session.GetState().Enabled);
         return Ok(new JsonObject { ["configId"] = config.Id });
+    }
+
+    private static JsonObject ConfigDuplicate(HostContext ctx, JsonObject request)
+    {
+        var workspaceId = request["workspaceId"]!.GetValue<string>();
+        var configId = request["configId"]!.GetValue<string>();
+        var name = request["name"]?.GetValue<string>();
+        var duplicated = ctx.Workspaces.DuplicateConfig(workspaceId, configId, name);
+        return Ok(new JsonObject
+        {
+            ["configId"] = duplicated.Id,
+            ["name"] = duplicated.Name
+        });
     }
 
     private static JsonObject ConfigMove(HostContext ctx, JsonObject request)

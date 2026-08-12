@@ -37,4 +37,46 @@ describe('ui store', () => {
     ui.resolveConfirm(true);
     await expect(pending).resolves.toBe(true);
   });
+
+  it('opens and closes move modal', () => {
+    const ui = useUiStore();
+    ui.openMove(
+      {
+        id: 'c1',
+        name: 'nginx.conf',
+        pluginKey: 'Nginx',
+        pluginVersion: '1.0',
+        pluginName: 'Nginx',
+        pluginMissing: false,
+        updatedAt: ''
+      },
+      'ws1'
+    );
+    expect(ui.moveOpen).toBe(true);
+    expect(ui.moveTarget?.config.id).toBe('c1');
+    expect(ui.moveTarget?.workspaceId).toBe('ws1');
+    ui.closeMove();
+    expect(ui.moveOpen).toBe(false);
+    expect(ui.moveTarget).toBeNull();
+  });
+
+  it('opens and closes history modal', () => {
+    const ui = useUiStore();
+    ui.openHistory(
+      {
+        id: 'c1',
+        name: 'nginx.conf',
+        pluginKey: 'Nginx',
+        pluginVersion: '1.0',
+        pluginName: 'Nginx',
+        pluginMissing: false,
+        updatedAt: ''
+      },
+      ''
+    );
+    expect(ui.historyOpen).toBe(true);
+    expect(ui.historyTarget?.workspaceId).toBe('');
+    ui.closeHistory();
+    expect(ui.historyOpen).toBe(false);
+  });
 });

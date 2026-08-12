@@ -77,6 +77,34 @@ public class WorkspaceServiceTests : IDisposable
     }
 
     [Fact]
+    public void DuplicateConfig_CopiesSourceValuesAndUnrecognized()
+    {
+        var project = NewProject();
+        var ws = _service.CreateWorkspace(project.Id, "生产环境");
+        var nginx = LoadNginx();
+        var source = _service.CreateConfig(
+            project.Id,
+            ws.Id,
+            nginx,
+            name: "nginx.conf",
+            sourceText: "worker_processes auto;\n",
+            values: new Dictionary<string, object?> { ["workerProcesses"] = "auto" },
+            enabled: new Dictionary<string, bool> { ["http"] = true });
+        source.Unrecognized.Add("# legacy line");
+        _service.SaveConfig(source);
+
+        var copy = _service.DuplicateConfig(ws.Id, source.Id);
+
+        Assert.NotEqual(source.Id, copy.Id);
+        Assert.Equal("nginx.conf - 副本", copy.Name);
+        Assert.Equal(source.SourceText, copy.SourceText);
+        Assert.Equal(source.Values["workerProcesses"], copy.Values["workerProcesses"]);
+        Assert.True(copy.Enabled["http"]);
+        Assert.Contains("# legacy line", copy.Unrecognized);
+        Assert.Equal(2, _service.ListConfigs(ws.Id).Count);
+    }
+
+    [Fact]
     public void Project_UnassignedConfig_And_Move()
     {
         var project = NewProject();

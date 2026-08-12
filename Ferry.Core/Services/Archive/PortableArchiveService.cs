@@ -45,6 +45,7 @@ public sealed class PortableArchiveService
         var project = _service.GetProject(workspace.ProjectId);
         var configs = _service.ListConfigs(workspaceId);
 
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(zipPath))!);
         if (File.Exists(zipPath))
         {
             File.Delete(zipPath);
@@ -75,6 +76,7 @@ public sealed class PortableArchiveService
         var workspace = ResolveWorkspace(workspaceId, config.WorkspaceId == string.Empty ? "未归类配置" : "工作空间");
         var project = _service.GetProject(workspace.ProjectId);
 
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(zipPath))!);
         if (File.Exists(zipPath))
         {
             File.Delete(zipPath);

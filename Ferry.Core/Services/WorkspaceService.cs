@@ -130,6 +130,28 @@ public sealed class WorkspaceService
         return config;
     }
 
+    /// <summary>复制配置：新 ID、新名字（默认追加“ - 副本”），保留源码/表单缓存/未识别内容。</summary>
+    public ConfigData DuplicateConfig(string workspaceId, string configId, string? name = null)
+    {
+        var source = _store.LoadConfig(workspaceId, configId)
+            ?? throw new InvalidOperationException($"配置不存在：{configId}");
+        var duplicated = new ConfigData
+        {
+            Id = NewId(),
+            ProjectId = source.ProjectId,
+            WorkspaceId = source.WorkspaceId,
+            Name = string.IsNullOrWhiteSpace(name) ? source.Name + " - 副本" : name,
+            PluginKey = source.PluginKey,
+            PluginVersion = source.PluginVersion,
+            SourceText = source.SourceText,
+            Values = new Dictionary<string, object?>(source.Values),
+            Enabled = new Dictionary<string, bool>(source.Enabled),
+            Unrecognized = new List<string>(source.Unrecognized)
+        };
+        _store.SaveConfig(duplicated);
+        return duplicated;
+    }
+
     /// <summary>未归类配置（不属于任何工作空间）。</summary>
     public IReadOnlyList<ConfigInfo> ListUnassignedConfigs(string projectId)
         => ListConfigs(string.Empty);

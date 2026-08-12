@@ -123,6 +123,22 @@ export const useConfigStore = defineStore('config', () => {
     return res;
   }
 
+  async function resetCurrent() {
+    const res = await getIpc().send('config:reset', {});
+    if (res.ok) {
+      snapshot.value = res.snapshot;
+      sourceText.value = res.sourceText;
+      errors.value = [];
+      try {
+        const validation = await getIpc().send('form:validate', {});
+        errors.value = validation.errors ?? [];
+      } catch {
+        // 校验失败不影响重置结果
+      }
+    }
+    return res;
+  }
+
   return {
     current,
     workspaceId,
@@ -147,6 +163,7 @@ export const useConfigStore = defineStore('config', () => {
     setValue,
     toggle,
     addItem,
-    removeItem
+    removeItem,
+    resetCurrent
   };
 });

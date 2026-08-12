@@ -62,4 +62,47 @@ describe('project store', () => {
     expect(store.projects).toHaveLength(1);
     expect(store.currentProjectId).toBe('p9');
   });
+
+  it('moveConfig sends config:move', async () => {
+    const mock = createMockTransport();
+    setIpcClientForTesting(createIpcClient(mock.transport));
+    const store = useProjectStore();
+
+    const pending = store.moveConfig('c1', 'ws2');
+    await Promise.resolve();
+    mock.respond(mock.sent[0].requestId, { configId: 'c1' });
+    await pending;
+
+    expect(mock.sent[0].action).toBe('config:move');
+    expect(mock.sent[0].payload.configId).toBe('c1');
+    expect(mock.sent[0].payload.workspaceId).toBe('ws2');
+  });
+
+  it('reorderConfigs sends config:reorder with ordered ids', async () => {
+    const mock = createMockTransport();
+    setIpcClientForTesting(createIpcClient(mock.transport));
+    const store = useProjectStore();
+
+    const pending = store.reorderConfigs('ws1', ['a', 'b']);
+    await Promise.resolve();
+    mock.respond(mock.sent[0].requestId, {});
+    await pending;
+
+    expect(mock.sent[0].action).toBe('config:reorder');
+    expect(mock.sent[0].payload.configIds).toEqual(['a', 'b']);
+  });
+
+  it('duplicateConfig sends config:duplicate', async () => {
+    const mock = createMockTransport();
+    setIpcClientForTesting(createIpcClient(mock.transport));
+    const store = useProjectStore();
+
+    const pending = store.duplicateConfig('c1', 'ws1');
+    await Promise.resolve();
+    mock.respond(mock.sent[0].requestId, { configId: 'c2', name: 'nginx.conf - 副本' });
+    const res = await pending;
+
+    expect(mock.sent[0].action).toBe('config:duplicate');
+    expect(res.name).toBe('nginx.conf - 副本');
+  });
 });
