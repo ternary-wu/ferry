@@ -25,10 +25,9 @@ const projectMenuOpen = ref(false);
 const wsCollapsed = ref(false);
 const cfgCollapsed = ref(false);
 const wsOpen = ref<Record<string, boolean>>({});
-const dragConfig = ref<{ id: string; workspaceId: string; name: string } | null>(null);
-const dropOverWs = ref<string | null>(null);
-const dropOverCfg = ref<string | null>(null);
-const dropBefore = ref(true);
+const dragSession = ref<{ config: ConfigInfo; sourceWorkspaceId: string } | null>(null);
+const dropTarget = ref<DropTargetState | null>(null);
+const createZoneArmed = ref(false);
 
 const isSettings = computed(() => route.name === 'settings');
 const currentProject = computed(() =>
@@ -307,7 +306,16 @@ function goHome() {
   void router.push('/');
 }
 
-// ---------- 拖拽 ----------
+// ---------- 拖拽（统一 Drag Session） ----------
+
+type DropMode = 'workspace' | 'workspace-sort' | 'unassigned' | 'create-workspace';
+
+interface DropTargetState {
+  mode: DropMode;
+  workspaceId?: string;
+  configId?: string;
+  before?: boolean;
+}
 
 function configsOf(workspaceId: string): ConfigInfo[] {
   return workspaceId === ''
@@ -331,100 +339,128 @@ function applyLocalOrder(workspaceId: string, ids: string[]) {
 }
 
 function onConfigDragStart(event: DragEvent, config: ConfigInfo, workspaceId: string) {
-  dragConfig.value = { id: config.id, workspaceId, name: config.name };
+  dragSession.value = { config, sourceWorkspaceId: workspaceId };
+  dropTarget.value = null;
+  createZoneArmed.value = false;
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', config.id);
   }
 }
 
+/** 拖拽进入 Workspace 区域后武装 Drop Zone；进入后保持到 dragend/drop/dragcancel。 */
+function armCreateZone() {
+  if (dragSession.value) {
+    createZoneArmed.value = true;
+  }
+}
+
 function onConfigDragOver(event: DragEvent, workspaceId: string, configId: string) {
-  if (!dragConfig.value) {
+  if (!dragSession.value) {
     return;
   }
   event.preventDefault();
   event.stopPropagation();
-  dropOverWs.value = workspaceId;
-  dropOverCfg.value = configId;
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-  dropBefore.value = event.clientY < rect.top + rect.height / 2;
+  dropTarget.value = {
+    mode: workspaceId === '' ? 'unassigned' : 'workspace-sort',
+    workspaceId,
+    configId,
+    before: event.clientY < rect.top + rect.height / 2
+  };
 }
 
 function onConfigDragLeave(event: DragEvent, workspaceId: string, configId: string) {
   if (event.relatedTarget && (event.currentTarget as HTMLElement).contains(event.relatedTarget as Node)) {
     return;
   }
-  if (dropOverWs.value === workspaceId && dropOverCfg.value === configId) {
-    dropOverCfg.value = null;
+  if (
+    (dropTarget.value?.mode === 'workspace-sort' || dropTarget.value?.mode === 'unassigned') &&
+    dropTarget.value?.workspaceId === workspaceId &&
+    dropTarget.value?.configId === configId
+  ) {
+    dropTarget.value = null;
   }
 }
 
 function onWsDragOver(workspaceId: string) {
-  if (!dragConfig.value) {
+  if (!dragSession.value) {
     return;
   }
-  dropOverWs.value = workspaceId;
-  dropOverCfg.value = null;
+  dropTarget.value = { mode: workspaceId === '' ? 'unassigned' : 'workspace', workspaceId };
+  if (workspaceId !== '') {
+    armCreateZone();
+  }
 }
 
 function onWsDragLeave(event: DragEvent, workspaceId: string) {
   if (event.relatedTarget && (event.currentTarget as HTMLElement).contains(event.relatedTarget as Node)) {
     return;
   }
-  if (dropOverWs.value === workspaceId && dropOverCfg.value === null) {
-    dropOverWs.value = null;
+  if (dropTarget.value?.mode === 'workspace' && dropTarget.value?.workspaceId === workspaceId) {
+    dropTarget.value = null;
+  }
+}
+
+/** Workspace 区域空白处：只武装 Drop Zone，不当作排序/移动目标。 */
+function onWorkspaceAreaDragOver() {
+  if (!dragSession.value) {
+    return;
+  }
+  armCreateZone();
+  if (dropTarget.value?.mode !== 'workspace-sort' && dropTarget.value?.mode !== 'unassigned') {
+    dropTarget.value = null;
   }
 }
 
 function resetDrag() {
-  dragConfig.value = null;
-  dropOverWs.value = null;
-  dropOverCfg.value = null;
+  dragSession.value = null;
+  dropTarget.value = null;
+  createZoneArmed.value = false;
 }
 
 async function onConfigDrop(workspaceId: string, targetCfgId: string) {
-  const from = dragConfig.value;
-  if (!from) {
-    resetDrag();
+  const from = dragSession.value;
+  const target = dropTarget.value;
+  resetDrag();
+  if (!from || !target) {
     return;
   }
-  if (from.workspaceId === workspaceId && from.id === targetCfgId) {
-    resetDrag();
+  if (from.sourceWorkspaceId === workspaceId && from.config.id === targetCfgId) {
     return;
   }
   const ids = configsOf(workspaceId)
     .map((c) => c.id)
-    .filter((id) => !(from.workspaceId === workspaceId && id === from.id));
+    .filter((id) => !(from.sourceWorkspaceId === workspaceId && id === from.config.id));
   const toIdx = ids.indexOf(targetCfgId);
-  const insertAt = toIdx < 0 ? ids.length : dropBefore.value ? toIdx : toIdx + 1;
-  ids.splice(insertAt, 0, from.id);
+  const insertAt = toIdx < 0 ? ids.length : target.before ? toIdx : toIdx + 1;
+  ids.splice(insertAt, 0, from.config.id);
   await commitDrop(workspaceId, ids, from);
 }
 
 async function onWorkspaceDrop(workspaceId: string) {
-  const from = dragConfig.value;
+  const from = dragSession.value;
+  resetDrag();
   if (!from) {
-    resetDrag();
     return;
   }
   const ids = configsOf(workspaceId)
     .map((c) => c.id)
-    .filter((id) => !(from.workspaceId === workspaceId && id === from.id));
-  ids.push(from.id);
+    .filter((id) => !(from.sourceWorkspaceId === workspaceId && id === from.config.id));
+  ids.push(from.config.id);
   await commitDrop(workspaceId, ids, from);
 }
 
 async function commitDrop(
   workspaceId: string,
   ids: string[],
-  from: { id: string; workspaceId: string }
+  from: { config: ConfigInfo; sourceWorkspaceId: string }
 ) {
-  resetDrag();
   try {
-    if (from.workspaceId !== workspaceId) {
-      await projectStore.moveConfig(from.id, workspaceId);
-      if (configStore.current?.id === from.id) {
-        await configStore.open(workspaceId, from.id);
+    if (from.sourceWorkspaceId !== workspaceId) {
+      await projectStore.moveConfig(from.config.id, workspaceId);
+      if (configStore.current?.id === from.config.id) {
+        await configStore.open(workspaceId, from.config.id);
       }
     }
     await projectStore.reorderConfigs(workspaceId, ids);
@@ -436,21 +472,21 @@ async function commitDrop(
 }
 
 function onCreateZoneDragOver() {
-  if (!dragConfig.value) {
+  if (!dragSession.value) {
     return;
   }
-  dropOverWs.value = '__create__';
-  dropOverCfg.value = null;
+  armCreateZone();
+  dropTarget.value = { mode: 'create-workspace' };
 }
 
 function onCreateZoneDragLeave() {
-  if (dropOverWs.value === '__create__') {
-    dropOverWs.value = null;
+  if (dropTarget.value?.mode === 'create-workspace') {
+    dropTarget.value = null;
   }
 }
 
 async function onCreateWorkspaceDrop() {
-  const from = dragConfig.value;
+  const from = dragSession.value;
   resetDrag();
   if (!from) {
     return;
@@ -461,11 +497,16 @@ async function onCreateWorkspaceDrop() {
   }
   try {
     const ws = await projectStore.createWorkspace(name);
-    await projectStore.moveConfig(from.id, ws.id);
-    if (configStore.current?.id === from.id) {
-      await configStore.open(ws.id, from.id);
+    await projectStore.moveConfig(from.config.id, ws.id);
+    if (configStore.current?.id === from.config.id) {
+      await configStore.open(ws.id, from.config.id);
     }
     await projectStore.loadNav();
+    wsOpen.value = { ...wsOpen.value, [ws.id]: true };
+    const moved = configsOf(ws.id).find((c) => c.id === from.config.id);
+    if (moved) {
+      await openConfig(moved, ws.id);
+    }
     notifications.add('ok', `已创建并移入「${ws.name}」`);
   } catch (error) {
     app.setStatus('创建/移动失败：' + (error as Error).message, true);
@@ -473,18 +514,28 @@ async function onCreateWorkspaceDrop() {
   }
 }
 
+function workspaceHeaderClass(ws: NavWorkspace) {
+  return {
+    'drag-over': dropTarget.value?.mode === 'workspace' && dropTarget.value?.workspaceId === ws.id
+  };
+}
+
+function unassignedSectionClass() {
+  return {
+    'drag-over': dropTarget.value?.mode === 'unassigned' && !dropTarget.value?.configId
+  };
+}
+
 function configRowClass(config: ConfigInfo, workspaceId: string) {
+  const isSortTarget =
+    dropTarget.value?.configId === config.id &&
+    dropTarget.value?.workspaceId === workspaceId &&
+    (dropTarget.value?.mode === 'workspace-sort' || dropTarget.value?.mode === 'unassigned');
   return {
     active: configStore.current?.id === config.id,
-    'dragging-source': dragConfig.value?.id === config.id,
-    'drop-before':
-      dropOverWs.value === workspaceId &&
-      dropOverCfg.value === config.id &&
-      dropBefore.value,
-    'drop-after':
-      dropOverWs.value === workspaceId &&
-      dropOverCfg.value === config.id &&
-      !dropBefore.value
+    'dragging-source': dragSession.value?.config.id === config.id,
+    'drop-before': Boolean(isSortTarget && dropTarget.value?.before),
+    'drop-after': Boolean(isSortTarget && !dropTarget.value?.before)
   };
 }
 </script>
@@ -531,12 +582,12 @@ function configRowClass(config: ConfigInfo, workspaceId: string) {
           <span class="ferry-hover-op" title="新建配置" @click.stop="wizardStore.openWizard()">＋</span>
           <span class="text-[10px] text-[var(--ferry-text-dim)]">{{ wsCollapsed ? '▸' : '▾' }}</span>
         </div>
-        <div v-if="!wsCollapsed" class="mt-1">
+        <div v-if="!wsCollapsed" class="mt-1" @dragover.prevent="onWorkspaceAreaDragOver">
           <div v-if="projectStore.nav.workspaces.length === 0" class="ferry-hint">暂无工作空间</div>
           <div v-for="ws in projectStore.nav.workspaces" :key="ws.id" class="group">
             <div
               class="ferry-tree-row"
-              :class="{ 'drag-over': dragConfig && dropOverWs === ws.id && dropOverCfg === null }"
+              :class="workspaceHeaderClass(ws)"
               @click="toggleWsOpen(ws.id)"
               @contextmenu.prevent="openWorkspaceMenu($event, ws)"
               @dragover.prevent="onWsDragOver(ws.id)"
@@ -576,9 +627,9 @@ function configRowClass(config: ConfigInfo, workspaceId: string) {
             </div>
           </div>
           <div
-            v-if="dragConfig"
+            v-if="dragSession && createZoneArmed"
             class="ferry-ws-drop-zone"
-            :class="{ 'drag-over': dropOverWs === '__create__' }"
+            :class="{ 'drag-over': dropTarget?.mode === 'create-workspace' }"
             @dragover.prevent="onCreateZoneDragOver"
             @dragleave="onCreateZoneDragLeave"
             @drop.prevent.stop="onCreateWorkspaceDrop"
@@ -590,7 +641,7 @@ function configRowClass(config: ConfigInfo, workspaceId: string) {
 
       <section
         class="ferry-sidebar-drop-target mt-6 rounded-xl"
-        :class="{ 'drag-over': dragConfig && dropOverWs === '' && dropOverCfg === null }"
+        :class="unassignedSectionClass()"
         @dragover.prevent="onWsDragOver('')"
         @dragleave="onWsDragLeave($event, '')"
         @drop.prevent.stop="onWorkspaceDrop('')"

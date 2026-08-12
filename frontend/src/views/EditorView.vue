@@ -26,13 +26,36 @@ watch(
 <template>
   <div v-if="configStore.isOpen" class="flex h-full flex-col">
     <header class="shrink-0 border-b border-[var(--ferry-border-soft)] px-6 pb-2 pt-5">
-      <h2 class="text-[21px]">{{ configStore.current?.name }}</h2>
-      <p class="text-[13px] text-[var(--ferry-text-muted)]">
-        {{ configStore.current?.pluginName }} · v{{ configStore.current?.pluginVersion }}
-        <template v-if="configStore.versionChanged">（字段可能有增减）</template>
-        <template v-if="templateName"> · 模板：{{ templateName }}</template>
-        <template v-if="configStore.pluginMissing"> · 插件缺失：仅可查看/导出源码</template>
-      </p>
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <h2 class="text-[21px]">{{ configStore.current?.name }}</h2>
+          <p class="text-[13px] text-[var(--ferry-text-muted)]">
+            {{ configStore.current?.pluginName }} · v{{ configStore.current?.pluginVersion }}
+            <template v-if="configStore.versionChanged">（字段可能有增减）</template>
+            <template v-if="templateName"> · 模板：{{ templateName }}</template>
+            <template v-if="configStore.pluginMissing"> · 插件缺失：仅可查看/导出源码</template>
+          </p>
+        </div>
+        <div class="flex shrink-0 items-center gap-2 pt-1">
+          <button
+            v-if="dock.open"
+            class="ferry-btn small"
+            :class="{ active: dock.maximized }"
+            title="Dock 占满主工作区"
+            @click="dock.toggleMaximize()"
+          >
+            {{ dock.maximized ? '还原' : '全占' }}
+          </button>
+          <button
+            class="ferry-btn small"
+            :class="{ active: dock.open }"
+            title="源码 Dock"
+            @click="dock.toggle()"
+          >
+            源码
+          </button>
+        </div>
+      </div>
     </header>
 
     <div class="flex shrink-0 items-center gap-2 border-b border-[var(--ferry-border-soft)] px-6 py-2">
@@ -46,14 +69,6 @@ watch(
         class="ferry-field-tool ferry-field-search"
         placeholder="搜索字段…"
       />
-      <button
-        class="ferry-btn small"
-        :class="{ active: dock.open }"
-        title="源码 Dock"
-        @click="dock.toggle()"
-      >
-        源码
-      </button>
       <button class="ferry-btn small" @click="configStore.collapseAll()">折叠全部</button>
       <button class="ferry-btn small" @click="configStore.expandAll()">展开全部</button>
     </div>

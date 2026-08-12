@@ -12,12 +12,13 @@ namespace Ferry.App.Window;
 /// </summary>
 public sealed class WindowController
 {
-    private const int DefaultWidth = 1440;
-    private const int DefaultHeight = 900;
+    private const int DefaultWidth = 1280;
+    private const int DefaultHeight = 800;
     private const int MinWidth = 1200;
     private const int MinHeight = 720;
 
     private const uint WmNcLButtonDown = 0x00A1;
+    private const uint WmNcCalcSize = 0x0083;
     private const uint WmGetMinMaxInfo = 0x0024;
     private const uint WmNcHitTest = 0x0084;
     private const int HtCaption = 0x0002;
@@ -172,13 +173,19 @@ public sealed class WindowController
         ScheduleSave();
     }
 
-    /// <summary>去掉 DWM 标准边框残留（顶部白边 / 非客户区残留的常见来源）。</summary>
+    /// <summary>
+    /// 去掉 DWM 非客户区渲染（DWMNCRP_DISABLED）：无边框窗口的透明玻璃边框会透出桌面，
+    /// 表现为顶部/四周白边；禁用后整个窗口矩形都归客户区，WebView 从最顶端开始渲染。
+    /// </summary>
     private void RemoveFrameBorder(IntPtr hwnd)
     {
         try
         {
-            var margins = new MARGINS { Left = -1, Right = -1, Top = -1, Bottom = -1 };
-            DwmExtendFrameIntoClientArea(hwnd, ref margins);
+            var policy = 1; // DWMNCRP_DISABLED
+            DwmSetWindowAttribute(hwnd, 2, ref policy, Marshal.SizeOf<int>());
+            SetWindowPos(
+                hwnd, IntPtr.Zero, 0, 0, 0, 0,
+                SwpFramechanged | SwpNoMove | SwpNoSize | SwpNoZOrder | SwpNoActivate);
         }
         catch
         {
@@ -197,6 +204,32 @@ public sealed class WindowController
         catch
         {
             return 1.0;
+        }
+    }
+
+    /// <summary>
+    /// 启动时强制 PerMonitorV2 DPI 感知（清单可能被宿主覆盖时兜底）：
+    /// 窗口尺寸按物理像素处理，避免 150% 缩放下默认窗口被放大到占满屏幕。
+    /// </summary>
+    public static void EnablePerMonitorV2Dpi()
+    {
+        try
+        {
+            // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = -4
+            SetProcessDpiAwarenessContext(new IntPtr(-4));
+            return;
+        }
+        catch
+        {
+            // 旧系统回退
+        }
+        try
+        {
+            SetProcessDpiAwareness(2); // PROCESS_PER_MONITOR_DPI_AWARE
+        }
+        catch
+        {
+            // 忽略：保持系统默认
         }
     }
 
@@ -219,8 +252,8 @@ public sealed class WindowController
 
         var dpi = GetDpiForWindow(_hwnd);
         _scale = dpi > 0 ? dpi / 96.0 : GetSystemScaleFactor();
-        _minW = (int)Math.Round(MinWidth * _scale);
-        _minH = (int)Math.Round(MinHeight * _scale);
+        _minW = MinWidth;
+        _minH = MinHeight;
         _maximized = _window.Maximized;
 
         EnsureWindowStyles(_hwnd);
@@ -273,6 +306,10 @@ public sealed class WindowController
     {
         switch (uMsg)
         {
+            case WmNcCalcSize:
+                // 清除全部非客户区：无边框窗口的 DWM 边框会透出桌面（白边），
+                // 令整个窗口矩形都作为客户区，WebView 从最顶端渲染。
+                return IntPtr.Zero;
             case WmGetMinMaxInfo:
                 var mmi = Marshal.PtrToStructure<MINMAXINFO>(lParam);
                 mmi.ptMinTrackSize.X = _minW;
@@ -380,8 +417,8 @@ public sealed class WindowController
         }
 
         var work = GetPrimaryWorkArea();
-        var w = Math.Max(_minW, Math.Min((int)Math.Round(DefaultWidth * _scale), work.Right - work.Left));
-        var h = Math.Max(_minH, Math.Min((int)Math.Round(DefaultHeight * _scale), work.Bottom - work.Top));
+        var w = Math.Max(_minW, Math.Min(DefaultWidth, work.Right - work.Left));
+        var h = Math.Max(_minH, Math.Min(DefaultHeight, work.Bottom - work.Top));
         var l = work.Left + (work.Right - work.Left - w) / 2;
         var t = work.Top + (work.Bottom - work.Top - h) / 2;
         _window.SetSize(w, h);
@@ -403,18 +440,12 @@ public sealed class WindowController
         {
             return false;
         }
-        var interW = Math.Min(rect.Right, info.rcWork.Right) - Math.Max(rect.Left, info.rcWork.Left);
-        var interH = Math.Min(rect.Bottom, info.rcWork.Bottom) - Math.Max(rect.Top, info.rcWork.Top);
-        if (interW >= 200 && interH >= 120)
-        {
-            return true;
-        }
-
+        // 尺寸永远不超过当前显示器工作区，位置永远留在工作区内（超出/越界自动修正）
         width = Math.Min(width, info.rcWork.Right - info.rcWork.Left);
         height = Math.Min(height, info.rcWork.Bottom - info.rcWork.Top);
-        left = info.rcWork.Left + (info.rcWork.Right - info.rcWork.Left - width) / 2;
-        top = info.rcWork.Top + (info.rcWork.Bottom - info.rcWork.Top - height) / 2;
-        return false;
+        left = Math.Clamp(left, info.rcWork.Left, info.rcWork.Right - width);
+        top = Math.Clamp(top, info.rcWork.Top, info.rcWork.Bottom - height);
+        return true;
     }
 
     private RECT GetPrimaryWorkArea()
@@ -496,15 +527,6 @@ public sealed class WindowController
         public int Left;
         public int Top;
         public int Right;
-        public int Bottom;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct MARGINS
-    {
-        public int Left;
-        public int Right;
-        public int Top;
         public int Bottom;
     }
 
@@ -599,7 +621,13 @@ public sealed class WindowController
     private static extern bool ReleaseCapture();
 
     [DllImport("dwmapi.dll")]
-    private static extern int DwmExtendFrameIntoClientArea(IntPtr hwnd, ref MARGINS pMarInset);
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetProcessDpiAwarenessContext(IntPtr value);
+
+    [DllImport("shcore.dll")]
+    private static extern int SetProcessDpiAwareness(int value);
 
     [DllImport("user32.dll")]
     private static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);

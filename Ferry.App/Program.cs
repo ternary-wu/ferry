@@ -38,6 +38,7 @@ public static class Program
     [STAThread]
     public static void Main()
     {
+        Window.WindowController.EnablePerMonitorV2Dpi();
         FerryLog.Configure();
         Log("start");
 
@@ -57,12 +58,11 @@ public static class Program
             workspaceService,
             new PortableArchiveService(workspaceService, Array.Empty<PluginDescriptor>()));
 
-        var scale = Window.WindowController.GetSystemScaleFactor();
         var window = new PhotinoWindow()
             .SetTitle("Ferry")
             .SetUseOsDefaultSize(false)
-            .SetSize((int)Math.Round(1440 * scale), (int)Math.Round(900 * scale))
-            .SetMinSize((int)Math.Round(1200 * scale), (int)Math.Round(720 * scale))
+            .SetSize(1280, 800)
+            .SetMinSize(1200, 720)
             .SetChromeless(true);
         var windowController = new Window.WindowController(window);
         windowController.Initialize();
