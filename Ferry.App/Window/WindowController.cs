@@ -153,7 +153,9 @@ public sealed class WindowController
             _saveTimer = null;
         }
         SaveStateNow();
-        return true;
+        // Photino 3.0.14 语义（IL + WM_CLOSE 实测）：true = 取消关闭，false = 允许关闭。
+        // 之前返回 true 导致点关闭按钮后窗口不关闭、进程无法退出。
+        return false;
     }
 
     private void ScheduleSave()

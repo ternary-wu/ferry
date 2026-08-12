@@ -111,6 +111,7 @@ public static class Program
             // 关闭窗口后 WebView 已不可用，必须提前返回，不能再 SendWebMessage 回包
             if (action == "window:close")
             {
+                Log("window:close");
                 WindowClose(windowController);
                 return;
             }
