@@ -34,6 +34,11 @@ const restoreProject = computed({
   set: (value: boolean) => void settingsStore.save({ restoreProject: value })
 });
 
+const closeOutside = computed({
+  get: () => settingsStore.settings.closeOutside !== false,
+  set: (value: boolean) => void settingsStore.save({ closeOutside: value })
+});
+
 const defaultPath = computed({
   get: () => settingsStore.settings.defaultPath ?? '',
   set: (value: string) => void settingsStore.save({ defaultPath: value })
@@ -82,8 +87,18 @@ const animations = computed({
 });
 
 const tooltipDelay = computed({
-  get: () => settingsStore.settings.tooltipDelay ?? 500,
+  get: () => settingsStore.settings.tooltipDelay ?? 250,
   set: (value: number) => void settingsStore.save({ tooltipDelay: value })
+});
+
+const tooltipEnabled = computed({
+  get: () => settingsStore.settings.tooltipEnabled !== false,
+  set: (value: boolean) => void settingsStore.save({ tooltipEnabled: value })
+});
+
+const tooltipDelayEnabled = computed({
+  get: () => settingsStore.settings.tooltipDelayEnabled !== false,
+  set: (value: boolean) => void settingsStore.save({ tooltipDelayEnabled: value })
 });
 
 // ---------- 插件管理 ----------
@@ -208,6 +223,10 @@ onMounted(() => {
         <input v-model="restoreProject" type="checkbox" class="ferry-check" />
       </label>
       <label class="ferry-settings-row">
+        <span class="ferry-settings-label">点击弹窗外部关闭</span>
+        <input v-model="closeOutside" type="checkbox" class="ferry-check" />
+      </label>
+      <label class="ferry-settings-row">
         <span class="ferry-settings-label">默认路径（导出存档时使用）</span>
         <input v-model="defaultPath" class="ferry-input ferry-settings-input" placeholder="例如 D:\configs" />
       </label>
@@ -236,6 +255,14 @@ onMounted(() => {
       <label class="ferry-settings-row">
         <span class="ferry-settings-label">动画</span>
         <input v-model="animations" type="checkbox" class="ferry-check" />
+      </label>
+      <label class="ferry-settings-row">
+        <span class="ferry-settings-label">悬停显示字段说明</span>
+        <input v-model="tooltipEnabled" type="checkbox" class="ferry-check" />
+      </label>
+      <label class="ferry-settings-row">
+        <span class="ferry-settings-label">启用 Tooltip 延迟</span>
+        <input v-model="tooltipDelayEnabled" type="checkbox" class="ferry-check" />
       </label>
       <label class="ferry-settings-row">
         <span class="ferry-settings-label">Tooltip 延迟（ms）</span>

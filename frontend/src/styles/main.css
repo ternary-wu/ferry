@@ -1139,6 +1139,10 @@ textarea {
     visibility 0s;
 }
 
+html[data-tooltip='off'] [data-tip]::after {
+  display: none !important;
+}
+
 .ferry-field-label {
   overflow: visible;
 }

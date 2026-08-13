@@ -150,6 +150,8 @@ export interface AppSettings {
   moduleEnabled?: Record<string, boolean>;
   pluginDisabled?: Record<string, boolean>;
   tooltipDelay?: number;
+  tooltipDelayEnabled?: boolean;
+  tooltipEnabled?: boolean;
   trashDays?: number;
   trashSizeMB?: number;
   closeOutside?: boolean;

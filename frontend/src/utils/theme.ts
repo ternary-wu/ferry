@@ -16,12 +16,17 @@ export function applyTheme(theme?: string, animations?: boolean): void {
   root.dataset.animations = animations === false ? 'off' : 'on';
 }
 
-/** 字段说明 tooltip 的显示延迟（毫秒）。 */
-export function applyTooltipDelay(delay?: number): void {
+/** 字段说明 tooltip 移开后的消失延迟（毫秒）；延迟关闭时为 0。 */
+export function applyTooltipDelay(delay?: number, delayEnabled?: boolean): void {
   document.documentElement.style.setProperty(
     '--ferry-tooltip-delay',
-    `${delay ?? 500}ms`
+    delayEnabled === false ? '0ms' : `${delay ?? 250}ms`
   );
+}
+
+/** 悬停显示字段说明的总开关。 */
+export function applyTooltipEnabled(enabled?: boolean): void {
+  document.documentElement.dataset.tooltip = enabled === false ? 'off' : 'on';
 }
 
 export function onSystemThemeChange(callback: () => void): void {

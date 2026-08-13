@@ -18,7 +18,12 @@ import { useUiStore } from './stores/ui';
 import { useDockStore } from './stores/dock';
 import { useConfigStore } from './stores/config';
 import { setIpcLatencyListener } from './ipc';
-import { applyTheme, applyTooltipDelay, onSystemThemeChange } from './utils/theme';
+import {
+  applyTheme,
+  applyTooltipDelay,
+  applyTooltipEnabled,
+  onSystemThemeChange
+} from './utils/theme';
 
 const app = useAppStore();
 const projectStore = useProjectStore();
@@ -31,11 +36,14 @@ watch(
   () => [
     settingsStore.settings.theme,
     settingsStore.settings.animations,
-    settingsStore.settings.tooltipDelay
+    settingsStore.settings.tooltipDelay,
+    settingsStore.settings.tooltipDelayEnabled,
+    settingsStore.settings.tooltipEnabled
   ] as const,
-  ([theme, animations, tooltipDelay]) => {
+  ([theme, animations, tooltipDelay, tooltipDelayEnabled, tooltipEnabled]) => {
     applyTheme(theme, animations);
-    applyTooltipDelay(tooltipDelay);
+    applyTooltipDelay(tooltipDelay, tooltipDelayEnabled);
+    applyTooltipEnabled(tooltipEnabled);
   }
 );
 
@@ -73,7 +81,11 @@ onMounted(async () => {
     }
     await settingsStore.load();
     applyTheme(settingsStore.settings.theme, settingsStore.settings.animations);
-    applyTooltipDelay(settingsStore.settings.tooltipDelay);
+    applyTooltipDelay(
+      settingsStore.settings.tooltipDelay,
+      settingsStore.settings.tooltipDelayEnabled
+    );
+    applyTooltipEnabled(settingsStore.settings.tooltipEnabled);
     onSystemThemeChange(() => {
       if (settingsStore.settings.theme === 'system') {
         applyTheme(settingsStore.settings.theme, settingsStore.settings.animations);
