@@ -127,7 +127,7 @@ textarea {
 
 .win-btn:hover {
   background: var(--ferry-hover-strong);
-  color: #fff;
+  color: var(--ferry-text);
 }
 
 .win-btn.close:hover {
@@ -244,7 +244,7 @@ textarea {
 }
 
 .ferry-menu-row.active {
-  color: #fff;
+  color: var(--ferry-text);
 }
 
 .ferry-menu-row.danger {
@@ -319,7 +319,7 @@ textarea {
 
 .ferry-config-row.active {
   background: var(--ferry-control);
-  color: #fff;
+  color: var(--ferry-text);
 }
 
 .ferry-badge {
@@ -348,12 +348,12 @@ textarea {
 
 .ferry-nav-row:hover {
   background: var(--ferry-hover);
-  color: #fff;
+  color: var(--ferry-text);
 }
 
 .ferry-nav-row.active {
   background: rgba(47, 111, 235, 0.13);
-  color: #fff;
+  color: var(--ferry-text);
   border: 1px solid var(--ferry-primary);
 }
 
@@ -379,7 +379,7 @@ textarea {
 
 .ferry-ctx-item:hover {
   background: var(--ferry-control);
-  color: #fff;
+  color: var(--ferry-text);
 }
 
 .ferry-ctx-item.danger {
@@ -581,7 +581,7 @@ textarea {
 
 .ferry-ws-drop-zone.drag-over {
   border-color: var(--ferry-primary);
-  color: #fff;
+  color: var(--ferry-text);
   background: rgba(47, 111, 235, 0.12);
 }
 
@@ -618,7 +618,7 @@ textarea {
 
 .ferry-recent-chip:hover {
   border-color: var(--ferry-primary);
-  color: #fff;
+  color: var(--ferry-text);
 }
 
 /* ===== Wizard ===== */
@@ -650,7 +650,7 @@ textarea {
 
 .ferry-wizard-close:hover {
   background: var(--ferry-hover-strong);
-  color: #fff;
+  color: var(--ferry-text);
 }
 
 .ferry-wizard-close svg {
@@ -810,7 +810,7 @@ textarea {
 
 .ferry-btn.small.active {
   border-color: var(--ferry-primary);
-  color: #fff;
+  color: var(--ferry-text);
 }
 
 /* ===== Source Dock ===== */
@@ -869,12 +869,12 @@ textarea {
 
 .ferry-dock-btn:hover {
   background: var(--ferry-control);
-  color: #fff;
+  color: var(--ferry-text);
 }
 
 .ferry-dock-btn.active {
   border-color: var(--ferry-primary);
-  color: #fff;
+  color: var(--ferry-text);
 }
 
 .ferry-dock-btn.close:hover {
