@@ -227,10 +227,6 @@ export interface ActionMap {
   };
   'config:saveSource': { payload: { text: string }; data: Record<string, never> };
   'config:exportTo': { payload: { path: string }; data: { path: string } };
-  'config:exportFile': {
-    payload: { workspaceId: string; configId: string; path: string };
-    data: { path: string };
-  };
   'form:snapshot': { payload: Record<string, never>; data: FormResultData };
   'form:validate': { payload: Record<string, never>; data: FormResultData };
   'form:render': { payload: Record<string, never>; data: FormResultData };

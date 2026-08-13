@@ -62,8 +62,7 @@ async function importArchive() {
 
 async function pickImportFile() {
   const res = await getIpc().send('file:openDialog', {
-    title: '选择存档包',
-    patterns: ['*.zip']
+    title: '选择 Ferry 存档'
   });
   if (res.path) {
     importPath.value = res.path;
