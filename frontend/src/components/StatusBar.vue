@@ -35,7 +35,7 @@ const rightClass = computed(() =>
 </script>
 
 <template>
-  <footer class="ferry-statusbar flex h-[30px] shrink-0 items-center justify-between border-t border-[var(--ferry-border-soft)] px-5 text-xs text-[var(--ferry-text-muted)]">
+  <footer class="ferry-statusbar flex h-[30px] shrink-0 items-center justify-between border-t border-[var(--ferry-border-soft)] text-xs text-[var(--ferry-text-muted)]">
     <span :class="leftClass">{{ leftText }}</span>
     <span :class="rightClass">{{ rightText }}</span>
   </footer>

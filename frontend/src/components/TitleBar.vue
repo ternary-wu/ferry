@@ -31,13 +31,13 @@ function onBarDblClick(event: MouseEvent) {
 
 <template>
   <header
-    class="ferry-titlebar flex h-8 shrink-0 select-none items-center justify-between border-b border-[var(--ferry-border-soft)] bg-[var(--ferry-surface)] px-3"
+    class="ferry-titlebar flex h-8 shrink-0 select-none items-center justify-between border-b border-[var(--ferry-border-soft)] bg-[var(--ferry-surface)]"
     @mousedown="onBarMouseDown"
     @dblclick="onBarDblClick"
   >
     <span class="text-xs text-[var(--ferry-text-muted)]">Ferry</span>
-    <span class="flex-1 truncate text-center text-xs text-[#bbb]">{{ breadcrumb }}</span>
-    <span class="flex items-center gap-0.5">
+    <span class="min-w-0 flex-1 truncate px-2 text-center text-xs text-[#bbb]">{{ breadcrumb }}</span>
+    <span class="flex shrink-0 items-center gap-0.5">
       <button class="win-btn" title="最小化" @click="windowStore.minimize()">
         <svg viewBox="0 0 12 12"><path d="M1 6h10" stroke="currentColor" stroke-width="1.2" /></svg>
       </button>

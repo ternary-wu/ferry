@@ -522,7 +522,8 @@ function configRowClass(config: ConfigInfo, workspaceId: string) {
     <template v-if="!isSettings">
       <div class="relative">
         <button
-          class="ferry-project-btn flex w-full items-center gap-2 rounded-xl border border-transparent bg-[var(--ferry-control)] px-3.5 py-3 text-sm hover:border-[#555]"
+          class="ferry-project-btn flex w-full items-center gap-2 rounded-xl border px-3.5 py-3 text-sm"
+          :class="{ open: projectMenuOpen }"
           @click="projectMenuOpen = !projectMenuOpen"
           @contextmenu.prevent="openProjectContextMenu"
         >
@@ -549,6 +550,8 @@ function configRowClass(config: ConfigInfo, workspaceId: string) {
           <div class="ferry-menu-row danger" @click="deleteProject">删除项目</div>
         </div>
       </div>
+
+      <button class="ferry-new-config-btn" @click="wizardStore.openWizard()">＋ 新建配置</button>
 
       <section class="mt-6">
         <div class="ferry-section-row" @click="wsCollapsed = !wsCollapsed">

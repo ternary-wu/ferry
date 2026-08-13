@@ -2,6 +2,9 @@
 
 :root {
   --ferry-sidebar-inset: 16px;
+  --ferry-titlebar-inset-x: 16px;
+  --ferry-titlebar-controls-gap: 12px;
+  --ferry-statusbar-inset-x: 20px;
   --ferry-bg: #212121;
   --ferry-surface: #171717;
   --ferry-card: #2b2b2b;
@@ -96,9 +99,68 @@ textarea {
   height: 11px;
 }
 
+.ferry-titlebar {
+  padding-left: var(--ferry-titlebar-inset-x);
+  padding-right: var(--ferry-titlebar-controls-gap);
+}
+
+.ferry-statusbar {
+  padding-left: var(--ferry-statusbar-inset-x);
+  padding-right: var(--ferry-statusbar-inset-x);
+}
+
 /* ===== Sidebar ===== */
 .ferry-sidebar {
   padding: 16px var(--ferry-sidebar-inset);
+}
+
+.ferry-project-btn {
+  background: var(--ferry-control);
+  border-color: var(--ferry-border);
+  color: var(--ferry-text);
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.ferry-project-btn:hover {
+  background: #3a3a3a;
+  border-color: #666;
+}
+
+.ferry-project-btn.open,
+.ferry-project-btn:focus-visible {
+  border-color: var(--ferry-primary);
+  outline: 2px solid rgba(47, 111, 235, 0.35);
+  outline-offset: 2px;
+}
+
+.ferry-new-config-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  background: var(--ferry-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  transition: background 0.12s ease, transform 0.06s ease;
+}
+
+.ferry-new-config-btn:hover {
+  background: var(--ferry-primary-hover);
+}
+
+.ferry-new-config-btn:active {
+  transform: scale(0.98);
+}
+
+.ferry-new-config-btn:focus-visible {
+  outline: 2px solid rgba(47, 111, 235, 0.5);
+  outline-offset: 2px;
 }
 
 .ferry-project-menu {
