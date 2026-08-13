@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAppStore } from '../stores/app';
 import { useProjectStore } from '../stores/project';
@@ -8,6 +8,7 @@ import { useWizardStore } from '../stores/wizard';
 import { useSettingsStore } from '../stores/settings';
 import { getIpc } from '../ipc';
 import { loadLocal, saveLocal } from '../utils/storage';
+import { splitName, joinName } from '../utils/nameParts';
 import type { PluginDescriptor, PluginTemplateDto } from '../ipc/types';
 
 const router = useRouter();
@@ -46,6 +47,30 @@ const recentPlugins = computed(() => {
 
 const currentPlugin = computed(
   () => appStore.plugins.find((plugin) => plugin.key === wizard.pluginKey) ?? null
+);
+const extUnlocked = ref(false);
+
+const fileNameInput = computed({
+  get: () => splitName(wizard.name).file,
+  set: (value: string) => {
+    wizard.name = joinName(value, splitName(wizard.name).ext);
+  }
+});
+
+const fileExtInput = computed({
+  get: () => splitName(wizard.name).ext,
+  set: (value: string) => {
+    wizard.name = joinName(splitName(wizard.name).file, value);
+  }
+});
+
+watch(
+  () => wizard.open,
+  (open) => {
+    if (open) {
+      extUnlocked.value = false;
+    }
+  }
 );
 
 const templateOptions = computed<Array<PluginTemplateDto & { id: string }>>(() => {
@@ -207,7 +232,20 @@ async function createConfig() {
 
         <div v-else>
           <h2 class="ferry-wizard-title">配置信息</h2>
-          <input v-model="wizard.name" class="ferry-input" placeholder="输入配置名" />
+          <div class="ferry-wizard-name-row">
+            <input v-model="fileNameInput" class="ferry-input" placeholder="文件名" />
+            <span class="ferry-wizard-dot">.</span>
+            <input
+              v-model="fileExtInput"
+              class="ferry-input ferry-wizard-ext"
+              :disabled="!extUnlocked"
+              placeholder="扩展名"
+            />
+          </div>
+          <label class="ferry-wizard-ext-toggle">
+            <input v-model="extUnlocked" type="checkbox" />
+            <span>允许修改扩展名（如果改变扩展名，可能导致文件不可用）</span>
+          </label>
           <select
             v-model="wizard.workspaceId"
             class="ferry-input ferry-wizard-select"

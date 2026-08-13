@@ -772,6 +772,35 @@ textarea {
   cursor: not-allowed;
 }
 
+.ferry-wizard-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.ferry-wizard-dot {
+  color: var(--ferry-text-muted);
+  font-size: 16px;
+}
+
+.ferry-wizard-ext {
+  width: 120px;
+}
+
+.ferry-wizard-ext-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--ferry-text-muted);
+}
+
+.ferry-wizard-ext-toggle input {
+  accent-color: var(--ferry-primary);
+}
+
 /* ===== Config Editor ===== */
 .ferry-btn.small {
   padding: 6px 10px;

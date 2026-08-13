@@ -37,6 +37,8 @@ export const useUiStore = defineStore('ui', () => {
   const moveTarget = ref<ConfigTarget | null>(null);
   const historyOpen = ref(false);
   const historyTarget = ref<ConfigTarget | null>(null);
+  const renameOpen = ref(false);
+  const renameTarget = ref<ConfigTarget | null>(null);
 
   function openMenu(items: ContextMenuItem[], x: number, y: number) {
     menuItems.value = items;
@@ -102,6 +104,16 @@ export const useUiStore = defineStore('ui', () => {
     historyTarget.value = null;
   }
 
+  function openRename(config: ConfigInfo, workspaceId: string) {
+    renameTarget.value = { config, workspaceId };
+    renameOpen.value = true;
+  }
+
+  function closeRename() {
+    renameOpen.value = false;
+    renameTarget.value = null;
+  }
+
   return {
     menuOpen,
     menuItems,
@@ -128,6 +140,10 @@ export const useUiStore = defineStore('ui', () => {
     historyOpen,
     historyTarget,
     openHistory,
-    closeHistory
+    closeHistory,
+    renameOpen,
+    renameTarget,
+    openRename,
+    closeRename
   };
 });

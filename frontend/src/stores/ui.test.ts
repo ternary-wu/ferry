@@ -79,4 +79,25 @@ describe('ui store', () => {
     ui.closeHistory();
     expect(ui.historyOpen).toBe(false);
   });
+
+  it('opens and closes rename modal', () => {
+    const ui = useUiStore();
+    ui.openRename(
+      {
+        id: 'c1',
+        name: 'nginx.conf',
+        pluginKey: 'Nginx',
+        pluginVersion: '1.0',
+        pluginName: 'Nginx',
+        pluginMissing: false,
+        updatedAt: ''
+      },
+      'ws1'
+    );
+    expect(ui.renameOpen).toBe(true);
+    expect(ui.renameTarget?.config.name).toBe('nginx.conf');
+    ui.closeRename();
+    expect(ui.renameOpen).toBe(false);
+    expect(ui.renameTarget).toBeNull();
+  });
 });

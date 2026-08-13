@@ -159,19 +159,7 @@ async function duplicateConfig(config: ConfigInfo, workspaceId: string) {
 }
 
 async function renameConfig(config: ConfigInfo, workspaceId: string) {
-  const name = await ui.prompt({ title: '配置名称', defaultValue: config.name });
-  if (!name || name === config.name) {
-    return;
-  }
-  try {
-    const res = await projectStore.renameConfig(config.id, workspaceId, name);
-    await projectStore.loadNav();
-    if (configStore.current?.id === config.id && configStore.current) {
-      configStore.current.name = res.name;
-    }
-  } catch (error) {
-    app.setStatus('重命名失败：' + (error as Error).message, true);
-  }
+  ui.openRename(config, workspaceId);
 }
 
 async function resetConfig(config: ConfigInfo, workspaceId: string) {
@@ -631,7 +619,7 @@ function configRowClass(config: ConfigInfo, workspaceId: string) {
           </button>
           <div
             v-if="projectMenuOpen"
-            class="ferry-project-menu absolute left-0 right-0 top-full z-50 mt-1.5 rounded-xl border border-[var(--ferry-border)] bg-[#252525] p-1.5 shadow-lg"
+          class="ferry-project-menu absolute left-0 right-0 top-full z-50 mt-1.5 rounded-xl border border-[var(--ferry-border)] bg-[var(--ferry-overlay)] p-1.5 shadow-lg"
           >
             <div
               v-for="p in projectStore.projects"
