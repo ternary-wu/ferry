@@ -522,7 +522,7 @@ function configRowClass(config: ConfigInfo, workspaceId: string) {
     <template v-if="!isSettings">
       <div class="relative">
         <button
-          class="ferry-project-btn flex w-full items-center gap-2 rounded-xl border px-3.5 py-3 text-sm"
+          class="ferry-project-btn flex w-full items-center gap-2 rounded-xl border text-sm"
           :class="{ open: projectMenuOpen }"
           @click="projectMenuOpen = !projectMenuOpen"
           @contextmenu.prevent="openProjectContextMenu"
