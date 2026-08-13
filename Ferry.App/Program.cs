@@ -141,6 +141,7 @@ public static class Program
                 "configs:unassigned" => ConfigsUnassigned(ctx, request!),
                 "config:create" => ConfigCreate(ctx, request!),
                 "config:duplicate" => ConfigDuplicate(ctx, request!),
+                "config:rename" => ConfigRename(ctx, request!),
                 "config:open" => ConfigOpen(ctx, request!),
                 "config:delete" => ConfigDelete(ctx, request!),
                 "config:move" => ConfigMove(ctx, request!),
@@ -417,6 +418,19 @@ public static class Program
         {
             ["configId"] = duplicated.Id,
             ["name"] = duplicated.Name
+        });
+    }
+
+    private static JsonObject ConfigRename(HostContext ctx, JsonObject request)
+    {
+        var workspaceId = request["workspaceId"]!.GetValue<string>();
+        var configId = request["configId"]!.GetValue<string>();
+        var name = request["name"]!.GetValue<string>();
+        var renamed = ctx.Workspaces.RenameConfig(workspaceId, configId, name);
+        return Ok(new JsonObject
+        {
+            ["configId"] = renamed.Id,
+            ["name"] = renamed.Name
         });
     }
 

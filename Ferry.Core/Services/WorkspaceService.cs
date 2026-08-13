@@ -183,6 +183,16 @@ public sealed class WorkspaceService
         return duplicated;
     }
 
+    /// <summary>重命名配置：只改名称，不触碰源码/缓存/版本。</summary>
+    public ConfigData RenameConfig(string workspaceId, string configId, string name)
+    {
+        var config = _store.LoadConfig(workspaceId, configId)
+            ?? throw new InvalidOperationException($"配置不存在：{configId}");
+        config.Name = name;
+        _store.SaveConfig(config);
+        return config;
+    }
+
     /// <summary>未归类配置（不属于任何工作空间）。</summary>
     public IReadOnlyList<ConfigInfo> ListUnassignedConfigs(string projectId)
         => ListConfigs(string.Empty);

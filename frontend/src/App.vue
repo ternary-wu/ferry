@@ -9,6 +9,7 @@ import WizardModal from './components/WizardModal.vue';
 import MoveModal from './components/MoveModal.vue';
 import HistoryModal from './components/HistoryModal.vue';
 import SourceDock from './components/SourceDock.vue';
+import ToastHost from './components/ToastHost.vue';
 import { useAppStore } from './stores/app';
 import { useProjectStore } from './stores/project';
 import { useSettingsStore } from './stores/settings';
@@ -100,5 +101,6 @@ onMounted(async () => {
     <MoveModal />
     <HistoryModal />
     <WizardModal />
+    <ToastHost />
   </div>
 </template>

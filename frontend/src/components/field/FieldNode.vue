@@ -77,7 +77,7 @@ async function onToggleEnabled() {
       <span
         v-if="!props.node.canToggleEnabled"
         class="ferry-field-check lock"
-        title="必填字段不可取消"
+        data-tip="必填字段不可取消"
       >
         🔒
       </span>
@@ -85,13 +85,13 @@ async function onToggleEnabled() {
         v-else
         class="ferry-field-check"
         :class="{ checked: props.node.isEnabled }"
-        :title="props.node.isEnabled ? '取消勾选后该项不写入输出（值保留）' : '启用该项'"
+        :data-tip="props.node.isEnabled ? '取消勾选后该项不写入输出（值保留）' : '启用该项'"
         @click="onToggleEnabled"
       >
         {{ props.node.isEnabled ? '☑' : '☐' }}
       </span>
 
-      <span class="ferry-field-label" :title="props.node.description || props.node.label">
+      <span class="ferry-field-label" :data-tip="props.node.description || props.node.label">
         {{ props.node.label || props.node.id }}
       </span>
 

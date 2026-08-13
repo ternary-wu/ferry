@@ -132,6 +132,25 @@ public class WorkspaceServiceTests : IDisposable
     }
 
     [Fact]
+    public void RenameConfig_OnlyChangesName()
+    {
+        var project = NewProject();
+        var ws = _service.CreateWorkspace(project.Id, "生产环境");
+        var config = _service.CreateConfig(
+            project.Id,
+            ws.Id,
+            LoadNginx(),
+            name: "nginx.conf",
+            sourceText: "worker_processes auto;\n");
+
+        var renamed = _service.RenameConfig(ws.Id, config.Id, "prod.conf");
+
+        Assert.Equal("prod.conf", renamed.Name);
+        Assert.Equal("worker_processes auto;\n", renamed.SourceText);
+        Assert.Equal("prod.conf", _service.LoadConfig(ws.Id, config.Id)!.Name);
+    }
+
+    [Fact]
     public void Project_UnassignedConfig_And_Move()
     {
         var project = NewProject();

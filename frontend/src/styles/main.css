@@ -287,13 +287,14 @@ textarea {
   font-size: 13px;
 }
 
-.group:hover .ferry-hover-op,
-.ferry-section-row:hover .ferry-hover-op {
+.ferry-section-row:hover .ferry-hover-op,
+.ferry-tree-row:hover .ferry-hover-op,
+.ferry-config-row:hover .ferry-hover-op {
   opacity: 1;
 }
 
 .ferry-hover-op:hover {
-  color: #fff;
+  color: var(--ferry-text);
 }
 
 .ferry-tree-row,
@@ -1070,6 +1071,30 @@ textarea {
   padding: 0 6px 4px;
 }
 
+/* ===== 主题化 Tooltip ===== */
+[data-tip] {
+  position: relative;
+}
+
+[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 80;
+  max-width: 280px;
+  padding: 6px 9px;
+  background: var(--ferry-overlay);
+  color: var(--ferry-text);
+  border: 1px solid var(--ferry-border);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: normal;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
 /* ===== Settings ===== */
 .ferry-settings-body {
   margin-top: 16px;
@@ -1123,4 +1148,122 @@ textarea {
   height: 16px;
   accent-color: var(--ferry-primary);
   cursor: pointer;
+}
+
+/* ===== 通知中心 ===== */
+.ferry-notify-wrap {
+  position: relative;
+}
+
+.ferry-notify-bell {
+  position: relative;
+}
+
+.ferry-notify-dot {
+  position: absolute;
+  top: 5px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ferry-primary);
+}
+
+.ferry-notify-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 120;
+  width: 320px;
+  max-height: 420px;
+  overflow-y: auto;
+  background: var(--ferry-overlay);
+  border: 1px solid var(--ferry-border);
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+
+.ferry-notify-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--ferry-border-soft);
+}
+
+.ferry-notify-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ferry-notify-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--ferry-border-soft);
+  font-size: 12px;
+}
+
+.ferry-notify-item:last-child {
+  border-bottom: none;
+}
+
+.ferry-notify-text {
+  flex: 1;
+  min-width: 0;
+  color: var(--ferry-text);
+}
+
+.ferry-notify-time {
+  color: var(--ferry-text-dim);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.ferry-notify-close {
+  color: var(--ferry-text-dim);
+  font-size: 14px;
+  padding: 2px 5px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.ferry-notify-close:hover {
+  color: var(--ferry-danger);
+  background: rgba(248, 81, 73, 0.12);
+}
+
+.ferry-notify-item.error .ferry-notify-text {
+  color: var(--ferry-danger);
+}
+
+.ferry-toast-host {
+  position: fixed;
+  right: 16px;
+  bottom: 44px;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.ferry-toast {
+  max-width: 320px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--ferry-overlay);
+  color: var(--ferry-text);
+  border: 1px solid var(--ferry-border);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+  font-size: 12px;
+}
+
+.ferry-toast.ok {
+  border-color: var(--ferry-ok);
+}
+
+.ferry-toast.error {
+  border-color: var(--ferry-danger);
 }

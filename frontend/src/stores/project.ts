@@ -80,6 +80,10 @@ export const useProjectStore = defineStore('project', () => {
     return getIpc().send('config:duplicate', { workspaceId, configId, name });
   }
 
+  async function renameConfig(configId: string, workspaceId: string, name: string) {
+    return getIpc().send('config:rename', { workspaceId, configId, name });
+  }
+
   async function reorderConfigs(workspaceId: string, configIds: string[]) {
     return getIpc().send('config:reorder', { workspaceId, configIds });
   }
@@ -109,6 +113,7 @@ export const useProjectStore = defineStore('project', () => {
     reorderWorkspaces,
     moveConfig,
     duplicateConfig,
+    renameConfig,
     reorderConfigs
   };
 });

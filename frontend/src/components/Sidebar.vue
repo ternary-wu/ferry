@@ -158,6 +158,22 @@ async function duplicateConfig(config: ConfigInfo, workspaceId: string) {
   }
 }
 
+async function renameConfig(config: ConfigInfo, workspaceId: string) {
+  const name = await ui.prompt({ title: '配置名称', defaultValue: config.name });
+  if (!name || name === config.name) {
+    return;
+  }
+  try {
+    const res = await projectStore.renameConfig(config.id, workspaceId, name);
+    await projectStore.loadNav();
+    if (configStore.current?.id === config.id && configStore.current) {
+      configStore.current.name = res.name;
+    }
+  } catch (error) {
+    app.setStatus('重命名失败：' + (error as Error).message, true);
+  }
+}
+
 async function resetConfig(config: ConfigInfo, workspaceId: string) {
   const ok = await ui.confirm({
     title: '恢复默认配置',
@@ -268,6 +284,7 @@ function workspaceMenuItems(workspace: NavWorkspace): ContextMenuItem[] {
 function configMenuItems(config: ConfigInfo, workspaceId: string): ContextMenuItem[] {
   return [
     { text: '查看', onClick: () => void openConfig(config, workspaceId) },
+    { text: '重命名', onClick: () => void renameConfig(config, workspaceId) },
     { text: '导出', onClick: () => void exportConfig(config, workspaceId) },
     { text: '复制', onClick: () => void duplicateConfig(config, workspaceId) },
     { text: '移动', onClick: () => ui.openMove(config, workspaceId) },
