@@ -57,14 +57,18 @@ function onBarDblClick(event: MouseEvent) {
 
 <template>
   <header
-    class="ferry-titlebar flex h-8 shrink-0 select-none items-center justify-between border-b border-[var(--ferry-border-soft)] bg-[var(--ferry-surface)]"
+    class="ferry-titlebar relative flex h-8 shrink-0 select-none items-center justify-between border-b border-[var(--ferry-border-soft)] bg-[var(--ferry-surface)]"
     @mousedown="onBarMouseDown"
     @mousemove="onBarMouseMove"
     @mouseup="onBarMouseUp"
     @dblclick="onBarDblClick"
   >
     <span class="text-xs text-[var(--ferry-text-muted)]">Ferry</span>
-    <span class="min-w-0 flex-1 truncate px-2 text-center text-xs text-[#bbb]">{{ breadcrumb }}</span>
+    <span
+      class="pointer-events-none absolute left-1/2 top-1/2 max-w-[45%] -translate-x-1/2 -translate-y-1/2 truncate text-center text-xs text-[#bbb]"
+    >
+      {{ breadcrumb }}
+    </span>
     <span class="flex shrink-0 items-center gap-0.5">
       <NotificationPanel />
       <button class="win-btn" title="最小化" @click="windowStore.minimize()">

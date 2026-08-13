@@ -1082,6 +1082,8 @@ textarea {
   left: 0;
   top: calc(100% + 6px);
   z-index: 80;
+  width: max-content;
+  min-width: 120px;
   max-width: 280px;
   padding: 6px 9px;
   background: var(--ferry-overlay);
@@ -1093,6 +1095,17 @@ textarea {
   white-space: normal;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
   pointer-events: none;
+}
+
+.ferry-field-label {
+  overflow: visible;
+}
+
+.ferry-field-label-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ===== Settings ===== */

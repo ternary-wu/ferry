@@ -77,7 +77,13 @@ function onResizePointerUp(event: PointerEvent) {
       </button>
       <span class="flex-1"></span>
       <button class="ferry-dock-btn" title="仅占满主工作区" @click="dock.toggleMaximize()">
-        {{ dock.maximized ? '还原' : '全占' }}
+        <svg v-if="!dock.maximized" viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.2">
+          <path d="M5 1H1v4M9 13h4V9M1 9v4h4M13 5V1H9" />
+        </svg>
+        <svg v-else viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.2">
+          <rect x="1.5" y="5.5" width="7" height="7" />
+          <path d="M4.5 1.5h8v8" />
+        </svg>
       </button>
       <button class="ferry-dock-btn" title="关闭源码 Dock" @click="dock.toggle()">源码</button>
     </header>

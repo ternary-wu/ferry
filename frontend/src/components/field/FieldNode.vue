@@ -92,7 +92,7 @@ async function onToggleEnabled() {
       </span>
 
       <span class="ferry-field-label" :data-tip="props.node.description || props.node.label">
-        {{ props.node.label || props.node.id }}
+        <span class="ferry-field-label-text">{{ props.node.label || props.node.id }}</span>
       </span>
 
       <span v-if="props.node.isModule && props.node.enabledChildModulesText" class="ferry-field-count">
