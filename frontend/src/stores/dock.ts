@@ -6,8 +6,6 @@ import { loadLocal, saveLocal } from '../utils/storage';
 export const DOCK_MIN = 35;
 /** 拖拽宽度上限（60%）。 */
 export const DOCK_MAX = 60;
-/** 拖拽过程中允许进入的关闭区下限（30%），避免阈值附近手抖。 */
-export const DOCK_DRAG_LOWER = 30;
 /** 默认宽度（42%）。 */
 export const DOCK_DEFAULT_WIDTH = 42;
 
@@ -16,6 +14,8 @@ export const useDockStore = defineStore('dock', () => {
   const width = ref(clamp(loadLocal<number>('ferry.dock.width', DOCK_DEFAULT_WIDTH)));
   const maximized = ref(false);
   const lineNumbers = ref(loadLocal<boolean>('ferry.dock.lineNumbers', true));
+  /** 拖拽中指针已进入关闭区（宽度被钳制在阈值，松开才真正关闭）。 */
+  const closeZone = ref(false);
   /** 全占前记住的宽度，还原时恢复。 */
   const restoredWidth = ref(clamp(width.value));
 
@@ -27,12 +27,15 @@ export const useDockStore = defineStore('dock', () => {
   }
 
   function openDock() {
+    width.value = clamp(width.value);
+    closeZone.value = false;
     open.value = true;
   }
 
   function closeDock() {
     open.value = false;
     maximized.value = false;
+    closeZone.value = false;
   }
 
   function toggle() {
@@ -43,16 +46,18 @@ export const useDockStore = defineStore('dock', () => {
     }
   }
 
-  /** 拖拽中实时更新宽度：允许进入 30%–35% 关闭区，但不超过 60%。 */
+  /** 拖拽中实时更新宽度：视觉上钳制在 35%–60%，指针越过 35% 只标记关闭区。 */
   function resizeTo(percent: number) {
     width.value = Number.isFinite(percent)
-      ? Math.min(DOCK_MAX, Math.max(DOCK_DRAG_LOWER, percent))
+      ? Math.min(DOCK_MAX, Math.max(DOCK_MIN, percent))
       : width.value;
+    closeZone.value = Number.isFinite(percent) && percent < DOCK_MIN;
   }
 
-  /** 松开拖拽：低于 35% 关闭，否则保留并持久化。 */
+  /** 松开拖拽：处于关闭区则关闭并把宽度重置到阈值；否则保留并持久化。 */
   function finishResize() {
-    if (width.value < DOCK_MIN) {
+    if (closeZone.value) {
+      width.value = DOCK_MIN;
       closeDock();
       return;
     }
@@ -81,6 +86,7 @@ export const useDockStore = defineStore('dock', () => {
     width,
     maximized,
     lineNumbers,
+    closeZone,
     restoredWidth,
     openDock,
     closeDock,

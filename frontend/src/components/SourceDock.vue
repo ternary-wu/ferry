@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useConfigStore } from '../stores/config';
-import { DOCK_MIN, useDockStore } from '../stores/dock';
+import { useDockStore } from '../stores/dock';
 
 const configStore = useConfigStore();
 const dock = useDockStore();
@@ -10,7 +10,7 @@ const dragging = ref(false);
 const dockRef = ref<HTMLElement | null>(null);
 
 const sourceLines = computed(() => (configStore.sourceText ?? '').split('\n'));
-const inCloseZone = computed(() => !dock.maximized && dock.width < DOCK_MIN);
+const inCloseZone = computed(() => !dock.maximized && dock.closeZone);
 
 function onResizePointerDown(event: PointerEvent) {
   if (event.button !== 0) {

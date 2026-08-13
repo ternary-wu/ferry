@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
-import { DOCK_DRAG_LOWER, DOCK_MAX, DOCK_MIN, useDockStore } from './dock';
+import { DOCK_MAX, DOCK_MIN, useDockStore } from './dock';
 
 describe('dock store', () => {
   beforeEach(() => {
@@ -38,33 +38,41 @@ describe('dock store', () => {
     expect(dock.open).toBe(false);
   });
 
-  it('clamps resize to 30–60 and persists width on finish', () => {
+  it('clamps resize to 35–60 and persists width on finish', () => {
     const dock = useDockStore();
     dock.openDock();
     dock.resizeTo(90);
     expect(dock.width).toBe(DOCK_MAX);
     dock.resizeTo(10);
-    expect(dock.width).toBe(DOCK_DRAG_LOWER);
+    expect(dock.width).toBe(DOCK_MIN);
+    expect(dock.closeZone).toBe(true);
     dock.resizeTo(45);
     expect(dock.width).toBe(45);
+    expect(dock.closeZone).toBe(false);
     dock.finishResize();
     expect(dock.open).toBe(true);
     expect(JSON.parse(localStorage.getItem('ferry.dock.width')!)).toBe(45);
   });
 
-  it('closes when released below 35%', () => {
+  it('closes when released in close zone and resets width to threshold', () => {
     const dock = useDockStore();
     dock.openDock();
     dock.resizeTo(33);
+    expect(dock.width).toBe(DOCK_MIN);
+    expect(dock.closeZone).toBe(true);
     expect(dock.open).toBe(true);
     dock.finishResize();
     expect(dock.open).toBe(false);
+    dock.openDock();
+    expect(dock.width).toBe(DOCK_MIN);
+    expect(dock.closeZone).toBe(false);
   });
 
   it('keeps width when released at minimum threshold', () => {
     const dock = useDockStore();
     dock.openDock();
     dock.resizeTo(DOCK_MIN);
+    expect(dock.closeZone).toBe(false);
     dock.finishResize();
     expect(dock.open).toBe(true);
     expect(dock.width).toBe(DOCK_MIN);
