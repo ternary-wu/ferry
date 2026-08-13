@@ -65,6 +65,8 @@ public interface IWorkspaceStore
     WorkspaceInfo? GetWorkspace(string workspaceId);
     void SaveWorkspace(WorkspaceInfo workspace);
     void DeleteWorkspace(string workspaceId);
+    IReadOnlyList<string> GetWorkspaceOrder(string projectId);
+    void SaveWorkspaceOrder(string projectId, IReadOnlyList<string> workspaceIds);
 
     IReadOnlyList<ConfigInfo> ListConfigs(string workspaceId);
     IReadOnlyList<string> GetConfigOrder(string workspaceId);

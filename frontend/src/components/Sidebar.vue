@@ -25,7 +25,11 @@ const projectMenuOpen = ref(false);
 const wsCollapsed = ref(false);
 const cfgCollapsed = ref(false);
 const wsOpen = ref<Record<string, boolean>>({});
-const dragSession = ref<{ config: ConfigInfo; sourceWorkspaceId: string } | null>(null);
+type DragSessionState =
+  | { kind: 'config'; config: ConfigInfo; sourceWorkspaceId: string }
+  | { kind: 'workspace'; workspace: NavWorkspace };
+
+const dragSession = ref<DragSessionState | null>(null);
 const dropTarget = ref<DropTargetState | null>(null);
 
 const isSettings = computed(() => route.name === 'settings');
@@ -307,7 +311,12 @@ function goHome() {
 
 // ---------- 拖拽（统一 Drag Session） ----------
 
-type DropMode = 'workspace' | 'workspace-sort' | 'unassigned' | 'create-workspace';
+type DropMode =
+  | 'workspace'
+  | 'workspace-sort'
+  | 'workspace-reorder'
+  | 'unassigned'
+  | 'create-workspace';
 
 interface DropTargetState {
   mode: DropMode;
@@ -338,7 +347,7 @@ function applyLocalOrder(workspaceId: string, ids: string[]) {
 }
 
 function onConfigDragStart(event: DragEvent, config: ConfigInfo, workspaceId: string) {
-  dragSession.value = { config, sourceWorkspaceId: workspaceId };
+  dragSession.value = { kind: 'config', config, sourceWorkspaceId: workspaceId };
   dropTarget.value = null;
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move';
@@ -346,8 +355,17 @@ function onConfigDragStart(event: DragEvent, config: ConfigInfo, workspaceId: st
   }
 }
 
+function onWorkspaceDragStart(event: DragEvent, workspace: NavWorkspace) {
+  dragSession.value = { kind: 'workspace', workspace };
+  dropTarget.value = null;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', workspace.id);
+  }
+}
+
 function onConfigDragOver(event: DragEvent, workspaceId: string, configId: string) {
-  if (!dragSession.value) {
+  if (dragSession.value?.kind !== 'config') {
     return;
   }
   event.preventDefault();
@@ -374,18 +392,33 @@ function onConfigDragLeave(event: DragEvent, workspaceId: string, configId: stri
   }
 }
 
-function onWsDragOver(workspaceId: string) {
-  if (!dragSession.value) {
+function onWsDragOver(event: DragEvent, workspaceId: string) {
+  const session = dragSession.value;
+  if (!session) {
     return;
   }
-  dropTarget.value = { mode: workspaceId === '' ? 'unassigned' : 'workspace', workspaceId };
+  if (session.kind === 'config') {
+    dropTarget.value = { mode: workspaceId === '' ? 'unassigned' : 'workspace', workspaceId };
+    return;
+  }
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  dropTarget.value = {
+    mode: 'workspace-reorder',
+    workspaceId,
+    before: event.clientY < rect.top + rect.height / 2
+  };
 }
 
 function onWsDragLeave(event: DragEvent, workspaceId: string) {
   if (event.relatedTarget && (event.currentTarget as HTMLElement).contains(event.relatedTarget as Node)) {
     return;
   }
-  if (dropTarget.value?.mode === 'workspace' && dropTarget.value?.workspaceId === workspaceId) {
+  const target = dropTarget.value;
+  if (
+    target &&
+    (target.mode === 'workspace' || target.mode === 'workspace-reorder') &&
+    target.workspaceId === workspaceId
+  ) {
     dropTarget.value = null;
   }
 }
@@ -399,7 +432,7 @@ async function onConfigDrop(workspaceId: string, targetCfgId: string) {
   const from = dragSession.value;
   const target = dropTarget.value;
   resetDrag();
-  if (!from || !target) {
+  if (!from || !target || from.kind !== 'config') {
     return;
   }
   if (from.sourceWorkspaceId === workspaceId && from.config.id === targetCfgId) {
@@ -415,16 +448,45 @@ async function onConfigDrop(workspaceId: string, targetCfgId: string) {
 }
 
 async function onWorkspaceDrop(workspaceId: string) {
-  const from = dragSession.value;
+  const session = dragSession.value;
+  const target = dropTarget.value;
   resetDrag();
-  if (!from) {
+  if (!session) {
     return;
   }
-  const ids = configsOf(workspaceId)
-    .map((c) => c.id)
-    .filter((id) => !(from.sourceWorkspaceId === workspaceId && id === from.config.id));
-  ids.push(from.config.id);
-  await commitDrop(workspaceId, ids, from);
+  if (session.kind === 'config') {
+    const ids = configsOf(workspaceId)
+      .map((c) => c.id)
+      .filter((id) => !(session.sourceWorkspaceId === workspaceId && id === session.config.id));
+    ids.push(session.config.id);
+    await commitDrop(workspaceId, ids, {
+      config: session.config,
+      sourceWorkspaceId: session.sourceWorkspaceId
+    });
+    return;
+  }
+  await reorderWorkspacesDrop(session.workspace.id, workspaceId, target);
+}
+
+async function reorderWorkspacesDrop(
+  fromWsId: string,
+  targetWsId: string,
+  target: DropTargetState | null
+) {
+  if (fromWsId === targetWsId) {
+    return;
+  }
+  const ids = projectStore.nav.workspaces.map((w) => w.id).filter((id) => id !== fromWsId);
+  const toIdx = ids.indexOf(targetWsId);
+  const insertAt = toIdx < 0 ? ids.length : target?.before ? toIdx : toIdx + 1;
+  ids.splice(insertAt, 0, fromWsId);
+  try {
+    await projectStore.reorderWorkspaces(projectStore.currentProjectId, ids);
+    await projectStore.loadNav();
+  } catch (error) {
+    app.setStatus('工作空间排序失败：' + (error as Error).message, true);
+    await projectStore.loadNav();
+  }
 }
 
 async function commitDrop(
@@ -433,14 +495,20 @@ async function commitDrop(
   from: { config: ConfigInfo; sourceWorkspaceId: string }
 ) {
   try {
-    if (from.sourceWorkspaceId !== workspaceId) {
+    const isCross = from.sourceWorkspaceId !== workspaceId;
+    if (isCross) {
       await projectStore.moveConfig(from.config.id, workspaceId);
       if (configStore.current?.id === from.config.id) {
         await configStore.open(workspaceId, from.config.id);
       }
     }
     await projectStore.reorderConfigs(workspaceId, ids);
-    applyLocalOrder(workspaceId, ids);
+    if (isCross) {
+      // 跨工作空间移动后以服务端为准刷新导航，避免本地旧 nav 丢失被移动的配置
+      await projectStore.loadNav();
+    } else {
+      applyLocalOrder(workspaceId, ids);
+    }
   } catch (error) {
     app.setStatus('拖拽操作失败：' + (error as Error).message, true);
     await projectStore.loadNav();
@@ -448,7 +516,7 @@ async function commitDrop(
 }
 
 function onCreateZoneDragOver() {
-  if (!dragSession.value) {
+  if (dragSession.value?.kind !== 'config') {
     return;
   }
   dropTarget.value = { mode: 'create-workspace' };
@@ -463,7 +531,7 @@ function onCreateZoneDragLeave() {
 async function onCreateWorkspaceDrop() {
   const from = dragSession.value;
   resetDrag();
-  if (!from) {
+  if (!from || from.kind !== 'config') {
     return;
   }
   const name = await ui.prompt({ title: '新建工作空间', placeholder: '输入工作空间名称' });
@@ -490,8 +558,21 @@ async function onCreateWorkspaceDrop() {
 }
 
 function workspaceHeaderClass(ws: NavWorkspace) {
+  const target = dropTarget.value;
+  if (target?.mode === 'workspace' && target.workspaceId === ws.id) {
+    return { 'drag-over': true };
+  }
+  if (target?.mode === 'workspace-reorder' && target.workspaceId === ws.id) {
+    return {
+      'drag-over': true,
+      'drop-before': Boolean(target.before),
+      'drop-after': !target.before
+    };
+  }
   return {
-    'drag-over': dropTarget.value?.mode === 'workspace' && dropTarget.value?.workspaceId === ws.id
+    'drag-over': false,
+    'drop-before': false,
+    'drop-after': false
   };
 }
 
@@ -508,7 +589,8 @@ function configRowClass(config: ConfigInfo, workspaceId: string) {
     (dropTarget.value?.mode === 'workspace-sort' || dropTarget.value?.mode === 'unassigned');
   return {
     active: configStore.current?.id === config.id,
-    'dragging-source': dragSession.value?.config.id === config.id,
+    'dragging-source':
+      dragSession.value?.kind === 'config' && dragSession.value.config.id === config.id,
     'drop-before': Boolean(isSortTarget && dropTarget.value?.before),
     'drop-after': Boolean(isSortTarget && !dropTarget.value?.before)
   };
@@ -566,15 +648,18 @@ function configRowClass(config: ConfigInfo, workspaceId: string) {
           <div v-if="!wsCollapsed" class="mt-1">
             <div v-if="projectStore.nav.workspaces.length === 0" class="ferry-hint">暂无工作空间</div>
             <div v-for="ws in projectStore.nav.workspaces" :key="ws.id" class="group">
-              <div
-                class="ferry-tree-row"
-                :class="workspaceHeaderClass(ws)"
-                @click="toggleWsOpen(ws.id)"
-                @contextmenu.prevent="openWorkspaceMenu($event, ws)"
-                @dragover.prevent="onWsDragOver(ws.id)"
-                @dragleave="onWsDragLeave($event, ws.id)"
-                @drop.prevent.stop="onWorkspaceDrop(ws.id)"
-              >
+            <div
+              class="ferry-tree-row"
+              :class="workspaceHeaderClass(ws)"
+              draggable="true"
+              @click="toggleWsOpen(ws.id)"
+              @contextmenu.prevent="openWorkspaceMenu($event, ws)"
+              @dragstart="onWorkspaceDragStart($event, ws)"
+              @dragover.prevent="onWsDragOver($event, ws.id)"
+              @dragleave="onWsDragLeave($event, ws.id)"
+              @drop.prevent.stop="onWorkspaceDrop(ws.id)"
+              @dragend="resetDrag"
+            >
                 <span class="text-[10px] text-[var(--ferry-text-dim)]">{{ isWsOpen(ws.id) ? '▾' : '▸' }}</span>
                 <span class="name flex-1 truncate">{{ ws.name }}</span>
                 <span
@@ -613,7 +698,7 @@ function configRowClass(config: ConfigInfo, workspaceId: string) {
         <section
           class="ferry-sidebar-drop-target mt-6 rounded-xl"
           :class="unassignedSectionClass()"
-          @dragover.prevent="onWsDragOver('')"
+          @dragover.prevent="onWsDragOver($event, '')"
           @dragleave="onWsDragLeave($event, '')"
           @drop.prevent.stop="onWorkspaceDrop('')"
         >
@@ -649,7 +734,7 @@ function configRowClass(config: ConfigInfo, workspaceId: string) {
         </section>
 
         <div
-          v-if="dragSession"
+          v-if="dragSession?.kind === 'config'"
           class="ferry-ws-drop-zone"
           :class="{ 'drag-over': dropTarget?.mode === 'create-workspace' }"
           @dragover.prevent="onCreateZoneDragOver"

@@ -5,6 +5,7 @@ import { useAppStore } from '../stores/app';
 import { useProjectStore } from '../stores/project';
 import { useConfigStore } from '../stores/config';
 import { useWizardStore } from '../stores/wizard';
+import { useSettingsStore } from '../stores/settings';
 import { getIpc } from '../ipc';
 import { loadLocal, saveLocal } from '../utils/storage';
 import type { PluginDescriptor, PluginTemplateDto } from '../ipc/types';
@@ -14,15 +15,21 @@ const appStore = useAppStore();
 const projectStore = useProjectStore();
 const configStore = useConfigStore();
 const wizard = useWizardStore();
+const settingsStore = useSettingsStore();
+
+function isPluginEnabled(key: string): boolean {
+  return settingsStore.settings.pluginDisabled?.[key] !== true;
+}
 
 const filteredPlugins = computed(() => {
   const query = wizard.search.trim().toLowerCase();
   return appStore.plugins.filter(
     (plugin) =>
-      !query ||
-      plugin.name.toLowerCase().includes(query) ||
-      plugin.key.toLowerCase().includes(query) ||
-      (plugin.description || '').toLowerCase().includes(query)
+      isPluginEnabled(plugin.key) &&
+      (!query ||
+        plugin.name.toLowerCase().includes(query) ||
+        plugin.key.toLowerCase().includes(query) ||
+        (plugin.description || '').toLowerCase().includes(query))
   );
 });
 
@@ -33,6 +40,7 @@ const recentPlugins = computed(() => {
   return loadLocal<string[]>('ferry.recentPlugins', [])
     .map((key) => appStore.plugins.find((plugin) => plugin.key === key))
     .filter((plugin): plugin is PluginDescriptor => Boolean(plugin))
+    .filter((plugin) => isPluginEnabled(plugin.key))
     .slice(0, 4);
 });
 

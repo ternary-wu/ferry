@@ -45,6 +45,33 @@ public class WorkspaceServiceTests : IDisposable
     }
 
     [Fact]
+    public void ReorderWorkspaces_PersistsOrder_And_ListReturnsInOrder()
+    {
+        var project = NewProject();
+        var a = _service.CreateWorkspace(project.Id, "A");
+        var b = _service.CreateWorkspace(project.Id, "B");
+        var c = _service.CreateWorkspace(project.Id, "C");
+
+        _service.ReorderWorkspaces(project.Id, new[] { c.Id, a.Id, b.Id });
+
+        Assert.Equal(new[] { c.Id, a.Id, b.Id }, _service.ListWorkspaces(project.Id).Select(x => x.Id));
+    }
+
+    [Fact]
+    public void DeleteWorkspace_RemovesFromWorkspaceOrder()
+    {
+        var project = NewProject();
+        var a = _service.CreateWorkspace(project.Id, "A");
+        var b = _service.CreateWorkspace(project.Id, "B");
+        var c = _service.CreateWorkspace(project.Id, "C");
+        _service.ReorderWorkspaces(project.Id, new[] { c.Id, a.Id, b.Id });
+
+        _service.DeleteWorkspace(a.Id);
+
+        Assert.Equal(new[] { c.Id, b.Id }, _service.ListWorkspaces(project.Id).Select(x => x.Id));
+    }
+
+    [Fact]
     public void CreateConfig_UsesPluginDefaultFileName()
     {
         var nginx = LoadNginx();

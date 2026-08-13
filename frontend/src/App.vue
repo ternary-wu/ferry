@@ -16,6 +16,7 @@ import { useUiStore } from './stores/ui';
 import { useDockStore } from './stores/dock';
 import { useConfigStore } from './stores/config';
 import { setIpcLatencyListener } from './ipc';
+import { applyTheme, onSystemThemeChange } from './utils/theme';
 
 const app = useAppStore();
 const projectStore = useProjectStore();
@@ -23,6 +24,11 @@ const settingsStore = useSettingsStore();
 const ui = useUiStore();
 const dock = useDockStore();
 const configStore = useConfigStore();
+
+watch(
+  () => [settingsStore.settings.theme, settingsStore.settings.animations] as const,
+  ([theme, animations]) => applyTheme(theme, animations)
+);
 
 watch(
   () => configStore.isOpen,
@@ -57,6 +63,12 @@ onMounted(async () => {
       app.setStatus('就绪');
     }
     await settingsStore.load();
+    applyTheme(settingsStore.settings.theme, settingsStore.settings.animations);
+    onSystemThemeChange(() => {
+      if (settingsStore.settings.theme === 'system') {
+        applyTheme(settingsStore.settings.theme, settingsStore.settings.animations);
+      }
+    });
     const restoreProject = settingsStore.settings.restoreProject !== false;
     const preferredId =
       restoreProject && settingsStore.settings.lastProjectId

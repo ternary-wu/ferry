@@ -190,6 +190,10 @@ export interface ActionMap {
   };
   'workspace:rename': { payload: { id: string; name: string }; data: { workspace: WorkspaceInfo } };
   'workspace:delete': { payload: { id: string }; data: Record<string, never> };
+  'workspace:reorder': {
+    payload: { projectId: string; workspaceIds: string[] };
+    data: Record<string, never>;
+  };
   'nav:tree': { payload: { projectId: string }; data: NavTree };
   'configs:list': { payload: { workspaceId: string }; data: { configs: ConfigInfo[] } };
   'configs:unassigned': { payload: { projectId: string }; data: { configs: ConfigInfo[] } };

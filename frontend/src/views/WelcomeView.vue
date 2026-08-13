@@ -2,16 +2,19 @@
 import { computed } from 'vue';
 import { useAppStore } from '../stores/app';
 import { useWizardStore } from '../stores/wizard';
+import { useSettingsStore } from '../stores/settings';
 import { loadLocal } from '../utils/storage';
 import type { PluginDescriptor } from '../ipc/types';
 
 const appStore = useAppStore();
 const wizardStore = useWizardStore();
+const settingsStore = useSettingsStore();
 
 const recentPlugins = computed(() =>
   loadLocal<string[]>('ferry.recentPlugins', [])
     .map((key) => appStore.plugins.find((plugin) => plugin.key === key))
     .filter((plugin): plugin is PluginDescriptor => Boolean(plugin))
+    .filter((plugin) => settingsStore.settings.pluginDisabled?.[plugin.key] !== true)
     .slice(0, 4)
 );
 </script>

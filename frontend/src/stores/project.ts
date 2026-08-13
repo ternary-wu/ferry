@@ -68,6 +68,10 @@ export const useProjectStore = defineStore('project', () => {
     await getIpc().send('workspace:delete', { id });
   }
 
+  async function reorderWorkspaces(projectId: string, workspaceIds: string[]) {
+    return getIpc().send('workspace:reorder', { projectId, workspaceIds });
+  }
+
   async function moveConfig(configId: string, workspaceId: string) {
     return getIpc().send('config:move', { configId, workspaceId });
   }
@@ -102,6 +106,7 @@ export const useProjectStore = defineStore('project', () => {
     createWorkspace,
     renameWorkspace,
     deleteWorkspace,
+    reorderWorkspaces,
     moveConfig,
     duplicateConfig,
     reorderConfigs

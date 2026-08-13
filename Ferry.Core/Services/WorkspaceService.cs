@@ -97,9 +97,40 @@ public sealed class WorkspaceService
     public IReadOnlyList<WorkspaceInfo> ListWorkspaces(string? projectId = null)
     {
         var all = _store.ListWorkspaces();
-        return projectId is null
-            ? all
-            : all.Where(w => w.ProjectId == projectId).ToList();
+        if (projectId is null)
+        {
+            return all;
+        }
+        var list = all.Where(w => w.ProjectId == projectId).ToList();
+        var order = _store.GetWorkspaceOrder(projectId);
+        var orderIndex = new Dictionary<string, int>();
+        for (var i = 0; i < order.Count; i++)
+        {
+            orderIndex[order[i]] = i;
+        }
+        return list
+            .OrderBy(w => orderIndex.TryGetValue(w.Id, out var index) ? index : int.MaxValue)
+            .ToList();
+    }
+
+    /// <summary>
+    /// 保存工作空间排序（IPC 严格入口）：列表必须恰好包含该项目全部工作空间且不重复。
+    /// </summary>
+    public void ReorderWorkspaces(string projectId, IReadOnlyList<string> workspaceIds)
+    {
+        var existing = _store.ListWorkspaces()
+            .Where(w => w.ProjectId == projectId)
+            .Select(w => w.Id)
+            .ToHashSet();
+        var distinct = workspaceIds.Distinct().ToList();
+        if (distinct.Count != workspaceIds.Count
+            || distinct.Count != existing.Count
+            || distinct.Any(id => !existing.Contains(id)))
+        {
+            throw new InvalidOperationException(
+                "排序列表必须包含该项目全部工作空间且不重复");
+        }
+        _store.SaveWorkspaceOrder(projectId, distinct);
     }
 
     /// <summary>

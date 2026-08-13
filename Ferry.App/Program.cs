@@ -133,6 +133,7 @@ public static class Program
                 "workspace:create" => WorkspaceCreate(ctx, request!),
                 "workspace:rename" => WorkspaceRename(ctx, request!),
                 "workspace:delete" => WorkspaceDelete(ctx, request!),
+                "workspace:reorder" => WorkspaceReorder(ctx, request!),
                 "nav:tree" => NavTree(ctx, request!),
                 "configs:list" => ConfigsList(ctx, request!),
                 "configs:unassigned" => ConfigsUnassigned(ctx, request!),
@@ -324,6 +325,17 @@ public static class Program
     private static JsonObject WorkspaceDelete(HostContext ctx, JsonObject request)
     {
         ctx.Workspaces.DeleteWorkspace(request["id"]!.GetValue<string>());
+        return Ok();
+    }
+
+    private static JsonObject WorkspaceReorder(HostContext ctx, JsonObject request)
+    {
+        var projectId = request["projectId"]!.GetValue<string>();
+        var workspaceIds = (request["workspaceIds"] as JsonArray)
+            ?.Select(n => n!.GetValue<string>())
+            .ToList()
+            ?? throw new InvalidOperationException("未指定 workspaceIds");
+        ctx.Workspaces.ReorderWorkspaces(projectId, workspaceIds);
         return Ok();
     }
 

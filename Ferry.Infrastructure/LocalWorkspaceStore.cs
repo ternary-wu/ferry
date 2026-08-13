@@ -105,6 +105,7 @@ public sealed class LocalWorkspaceStore : IWorkspaceStore
                     }
                 }
             }
+            (root["workspaceOrder"] as JsonObject)?.Remove(projectId);
             Save(root);
         }
     }
@@ -136,12 +137,17 @@ public sealed class LocalWorkspaceStore : IWorkspaceStore
             var root = LoadRoot();
             var array = root["workspaces"] as JsonArray ?? new JsonArray();
             var existing = array.FirstOrDefault(n => n?["id"]?.GetValue<string>() == workspace.Id);
+            var isNew = existing is null;
             if (existing is not null)
             {
                 array.Remove(existing);
             }
             array.Add(ToWorkspaceNode(workspace));
             root["workspaces"] = array;
+            if (isNew)
+            {
+                EnsureWorkspaceOrderEntry(root, workspace.ProjectId, workspace.Id);
+            }
             Save(root);
         }
     }
@@ -153,11 +159,16 @@ public sealed class LocalWorkspaceStore : IWorkspaceStore
             var root = LoadRoot();
             var array = root["workspaces"] as JsonArray ?? new JsonArray();
             var existing = array.FirstOrDefault(n => n?["id"]?.GetValue<string>() == workspaceId);
+            var projectId = existing?["projectId"]?.GetValue<string>();
             if (existing is not null)
             {
                 array.Remove(existing);
             }
             root["workspaces"] = array;
+            if (projectId is not null)
+            {
+                RemoveWorkspaceOrderEntry(root, projectId, workspaceId);
+            }
 
             // 级联删除该工作空间下的配置及其版本。
             var configs = root["configs"] as JsonObject;
@@ -345,6 +356,35 @@ public sealed class LocalWorkspaceStore : IWorkspaceStore
                     .Select(s => (JsonNode)s)
                     .ToArray());
             root["configOrder"] = map;
+            Save(root);
+        }
+    }
+
+    public IReadOnlyList<string> GetWorkspaceOrder(string projectId)
+    {
+        lock (_sync)
+        {
+            var root = LoadRoot();
+            var map = root["workspaceOrder"] as JsonObject;
+            var array = map?[projectId] as JsonArray ?? new JsonArray();
+            return array
+                .Select(n => n?.GetValue<string>() ?? string.Empty)
+                .Where(s => !string.IsNullOrEmpty(s))
+                .ToList();
+        }
+    }
+
+    public void SaveWorkspaceOrder(string projectId, IReadOnlyList<string> workspaceIds)
+    {
+        lock (_sync)
+        {
+            var root = LoadRoot();
+            var map = root["workspaceOrder"] as JsonObject ?? new JsonObject();
+            map[projectId] = new JsonArray(
+                workspaceIds.Where(s => !string.IsNullOrEmpty(s))
+                    .Select(s => (JsonNode)s)
+                    .ToArray());
+            root["workspaceOrder"] = map;
             Save(root);
         }
     }
@@ -608,5 +648,36 @@ public sealed class LocalWorkspaceStore : IWorkspaceStore
             array.Remove(existing);
         }
         map[workspaceId] = array;
+    }
+
+    private static void EnsureWorkspaceOrderEntry(JsonObject root, string projectId, string workspaceId)
+    {
+        var map = root["workspaceOrder"] as JsonObject ?? new JsonObject();
+        var array = map[projectId] as JsonArray ?? new JsonArray();
+        if (array.Any(n => n?.GetValue<string>() == workspaceId))
+        {
+            return;
+        }
+        array.Add((JsonNode)workspaceId);
+        map[projectId] = array;
+        root["workspaceOrder"] = map;
+    }
+
+    private static void RemoveWorkspaceOrderEntry(JsonObject root, string projectId, string workspaceId)
+    {
+        if (root["workspaceOrder"] is not JsonObject map)
+        {
+            return;
+        }
+        if (map[projectId] is not JsonArray array)
+        {
+            return;
+        }
+        var existing = array.FirstOrDefault(n => n?.GetValue<string>() == workspaceId);
+        if (existing is not null)
+        {
+            array.Remove(existing);
+        }
+        map[projectId] = array;
     }
 }

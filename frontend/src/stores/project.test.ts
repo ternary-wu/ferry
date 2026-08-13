@@ -92,6 +92,20 @@ describe('project store', () => {
     expect(mock.sent[0].payload.configIds).toEqual(['a', 'b']);
   });
 
+  it('reorderWorkspaces sends workspace:reorder with ordered ids', async () => {
+    const mock = createMockTransport();
+    setIpcClientForTesting(createIpcClient(mock.transport));
+    const store = useProjectStore();
+
+    const pending = store.reorderWorkspaces('p1', ['a', 'b']);
+    await Promise.resolve();
+    mock.respond(mock.sent[0].requestId, {});
+    await pending;
+
+    expect(mock.sent[0].action).toBe('workspace:reorder');
+    expect(mock.sent[0].payload.workspaceIds).toEqual(['a', 'b']);
+  });
+
   it('duplicateConfig sends config:duplicate', async () => {
     const mock = createMockTransport();
     setIpcClientForTesting(createIpcClient(mock.transport));
