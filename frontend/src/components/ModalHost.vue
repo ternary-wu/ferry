@@ -1,9 +1,15 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue';
 import { useUiStore } from '../stores/ui';
+import { useSettingsStore } from '../stores/settings';
 
 const ui = useUiStore();
+const settingsStore = useSettingsStore();
 const promptInput = ref<HTMLInputElement | null>(null);
+
+function outsideClose() {
+  return settingsStore.settings.closeOutside !== false;
+}
 
 watch(
   () => ui.promptOpen,
@@ -27,7 +33,7 @@ function submitPrompt() {
 
 <template>
   <Teleport to="body">
-    <div v-if="ui.promptOpen" class="ferry-overlay" @mousedown.self="ui.resolvePrompt(null)">
+    <div v-if="ui.promptOpen" class="ferry-overlay" @mousedown.self="outsideClose() && ui.resolvePrompt(null)">
       <div class="ferry-modal">
         <div class="ferry-modal-title">{{ ui.promptTitle }}</div>
         <input
@@ -45,7 +51,7 @@ function submitPrompt() {
       </div>
     </div>
 
-    <div v-if="ui.confirmOpen" class="ferry-overlay" @mousedown.self="ui.resolveConfirm(false)">
+    <div v-if="ui.confirmOpen" class="ferry-overlay" @mousedown.self="outsideClose() && ui.resolveConfirm(false)">
       <div class="ferry-modal">
         <div class="ferry-modal-title">{{ ui.confirmTitle }}</div>
         <p class="ferry-modal-message">{{ ui.confirmMessage }}</p>

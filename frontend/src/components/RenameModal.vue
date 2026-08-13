@@ -4,12 +4,18 @@ import { useUiStore } from '../stores/ui';
 import { useProjectStore } from '../stores/project';
 import { useAppStore } from '../stores/app';
 import { useConfigStore } from '../stores/config';
+import { useSettingsStore } from '../stores/settings';
 import { splitName, joinName } from '../utils/nameParts';
 
 const ui = useUiStore();
 const projectStore = useProjectStore();
 const app = useAppStore();
 const configStore = useConfigStore();
+const settingsStore = useSettingsStore();
+
+function outsideClose() {
+  return settingsStore.settings.closeOutside !== false;
+}
 
 const file = ref('');
 const ext = ref('');
@@ -53,7 +59,7 @@ async function submit() {
 
 <template>
   <Teleport to="body">
-    <div v-if="ui.renameOpen" class="ferry-overlay" @mousedown.self="ui.closeRename()">
+    <div v-if="ui.renameOpen" class="ferry-overlay" @mousedown.self="outsideClose() && ui.closeRename()">
       <div class="ferry-modal">
         <div class="ferry-modal-title">重命名「{{ ui.renameTarget?.config.name }}」</div>
         <div class="ferry-wizard-name-row">

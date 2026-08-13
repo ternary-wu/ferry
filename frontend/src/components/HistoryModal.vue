@@ -5,12 +5,18 @@ import { getIpc } from '../ipc';
 import { useUiStore } from '../stores/ui';
 import { useConfigStore } from '../stores/config';
 import { useAppStore } from '../stores/app';
+import { useSettingsStore } from '../stores/settings';
 import type { VersionDto } from '../ipc/types';
 
 const ui = useUiStore();
 const configStore = useConfigStore();
 const app = useAppStore();
+const settingsStore = useSettingsStore();
 const router = useRouter();
+
+function outsideClose() {
+  return settingsStore.settings.closeOutside !== false;
+}
 
 const versions = ref<VersionDto[]>([]);
 const note = ref('');
@@ -105,7 +111,7 @@ async function remove(version: VersionDto) {
 
 <template>
   <Teleport to="body">
-    <div v-if="ui.historyOpen" class="ferry-overlay" @mousedown.self="ui.closeHistory()">
+    <div v-if="ui.historyOpen" class="ferry-overlay" @mousedown.self="outsideClose() && ui.closeHistory()">
       <div class="ferry-modal ferry-modal-wide">
         <div class="ferry-modal-title">版本历史 · {{ ui.historyTarget?.config.name }}</div>
         <div class="ferry-history-note">

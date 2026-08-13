@@ -18,7 +18,7 @@ import { useUiStore } from './stores/ui';
 import { useDockStore } from './stores/dock';
 import { useConfigStore } from './stores/config';
 import { setIpcLatencyListener } from './ipc';
-import { applyTheme, onSystemThemeChange } from './utils/theme';
+import { applyTheme, applyTooltipDelay, onSystemThemeChange } from './utils/theme';
 
 const app = useAppStore();
 const projectStore = useProjectStore();
@@ -28,8 +28,15 @@ const dock = useDockStore();
 const configStore = useConfigStore();
 
 watch(
-  () => [settingsStore.settings.theme, settingsStore.settings.animations] as const,
-  ([theme, animations]) => applyTheme(theme, animations)
+  () => [
+    settingsStore.settings.theme,
+    settingsStore.settings.animations,
+    settingsStore.settings.tooltipDelay
+  ] as const,
+  ([theme, animations, tooltipDelay]) => {
+    applyTheme(theme, animations);
+    applyTooltipDelay(tooltipDelay);
+  }
 );
 
 watch(
@@ -66,6 +73,7 @@ onMounted(async () => {
     }
     await settingsStore.load();
     applyTheme(settingsStore.settings.theme, settingsStore.settings.animations);
+    applyTooltipDelay(settingsStore.settings.tooltipDelay);
     onSystemThemeChange(() => {
       if (settingsStore.settings.theme === 'system') {
         applyTheme(settingsStore.settings.theme, settingsStore.settings.animations);

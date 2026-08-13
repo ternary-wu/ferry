@@ -5,13 +5,19 @@ import { useProjectStore } from '../stores/project';
 import { useConfigStore } from '../stores/config';
 import { useAppStore } from '../stores/app';
 import { useNotificationStore } from '../stores/notification';
+import { useSettingsStore } from '../stores/settings';
 
 const ui = useUiStore();
 const projectStore = useProjectStore();
 const configStore = useConfigStore();
 const app = useAppStore();
 const notifications = useNotificationStore();
+const settingsStore = useSettingsStore();
 const target = ref('');
+
+function outsideClose() {
+  return settingsStore.settings.closeOutside !== false;
+}
 
 watch(
   () => ui.moveOpen,
@@ -43,7 +49,7 @@ async function submit() {
 
 <template>
   <Teleport to="body">
-    <div v-if="ui.moveOpen" class="ferry-overlay" @mousedown.self="ui.closeMove()">
+    <div v-if="ui.moveOpen" class="ferry-overlay" @mousedown.self="outsideClose() && ui.closeMove()">
       <div class="ferry-modal">
         <div class="ferry-modal-title">移动「{{ ui.moveTarget?.config.name }}」到：</div>
         <select v-model="target" class="ferry-input ferry-move-select">

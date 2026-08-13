@@ -16,6 +16,14 @@ export function applyTheme(theme?: string, animations?: boolean): void {
   root.dataset.animations = animations === false ? 'off' : 'on';
 }
 
+/** 字段说明 tooltip 的显示延迟（毫秒）。 */
+export function applyTooltipDelay(delay?: number): void {
+  document.documentElement.style.setProperty(
+    '--ferry-tooltip-delay',
+    `${delay ?? 500}ms`
+  );
+}
+
 export function onSystemThemeChange(callback: () => void): void {
   const mq = window.matchMedia?.('(prefers-color-scheme: light)');
   mq?.addEventListener?.('change', callback);

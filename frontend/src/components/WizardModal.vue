@@ -18,6 +18,10 @@ const configStore = useConfigStore();
 const wizard = useWizardStore();
 const settingsStore = useSettingsStore();
 
+function outsideClose() {
+  return settingsStore.settings.closeOutside !== false;
+}
+
 function isPluginEnabled(key: string): boolean {
   return settingsStore.settings.pluginDisabled?.[key] !== true;
 }
@@ -163,7 +167,7 @@ async function createConfig() {
 
 <template>
   <Teleport to="body">
-    <div v-if="wizard.open" class="ferry-overlay" @mousedown.self="wizard.close()">
+    <div v-if="wizard.open" class="ferry-overlay" @mousedown.self="outsideClose() && wizard.close()">
       <div class="ferry-wizard">
         <button class="ferry-wizard-close" title="关闭" @click="wizard.close()">
           <svg viewBox="0 0 14 14">

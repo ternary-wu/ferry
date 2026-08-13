@@ -53,6 +53,7 @@ public static class Program
             ? new LocalWorkspaceStore()
             : new LocalWorkspaceStore(workspaceFile);
         var workspaceService = new WorkspaceService(workspaceStore);
+        CleanupTrashOnStartup(workspaceService);
         var context = new HostContext(
             pluginManager,
             workspaceService,
@@ -765,6 +766,86 @@ public static class Program
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "Ferry",
             "trash");
+
+    /// <summary>
+    /// 启动时后台清理回收站（不使用定时任务）：
+    /// 按 Settings 的保留天数删除过期文件，并按最大空间从旧到新清理超量文件。
+    /// </summary>
+    private static void CleanupTrashOnStartup(WorkspaceService workspaces)
+    {
+        try
+        {
+            var settings = workspaces.LoadSettings();
+            var days = GetSettingsLong(settings, "trashDays", 30);
+            var maxMb = GetSettingsLong(settings, "trashSizeMB", 2048);
+            var dir = TrashDir();
+            if (!Directory.Exists(dir))
+            {
+                return;
+            }
+            var now = DateTimeOffset.Now;
+            var files = Directory.GetFiles(dir, "*.zip")
+                .Select(f => new FileInfo(f))
+                .ToList();
+            var expired = files
+                .Where(f => now - f.LastWriteTime > TimeSpan.FromDays(days))
+                .ToList();
+            foreach (var file in expired)
+            {
+                try
+                {
+                    File.Delete(file.FullName);
+                }
+                catch
+                {
+                    // 单个文件删除失败不影响其他文件
+                }
+            }
+            files = files.Where(f => !expired.Contains(f)).ToList();
+
+            var total = files.Sum(f => f.Length);
+            var oldestFirst = files.OrderBy(f => f.LastWriteTime).ToList();
+            var limit = maxMb * 1024L * 1024L;
+            while (total > limit && oldestFirst.Count > 0)
+            {
+                var oldest = oldestFirst[0];
+                oldestFirst.RemoveAt(0);
+                try
+                {
+                    File.Delete(oldest.FullName);
+                    total -= oldest.Length;
+                }
+                catch
+                {
+                    // 忽略无法删除的文件
+                }
+            }
+            Log($"trash-cleanup: expired={expired.Count}");
+        }
+        catch
+        {
+            // 启动清理失败不阻塞应用
+        }
+    }
+
+    private static long GetSettingsLong(
+        Dictionary<string, object?> settings,
+        string key,
+        long fallback)
+    {
+        if (settings.TryGetValue(key, out var value) && value is IConvertible convertible)
+        {
+            try
+            {
+                return convertible.ToInt64(System.Globalization.CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+                // 类型不符时使用默认值
+            }
+        }
+        return fallback;
+    }
 
     private static JsonObject TrashList()
     {
