@@ -154,6 +154,7 @@ export interface AppSettings {
   tooltipEnabled?: boolean;
   tooltipShowDelay?: number;
   tooltipShowDelayEnabled?: boolean;
+  showFileExtension?: boolean;
   trashDays?: number;
   trashSizeMB?: number;
   closeOutside?: boolean;
@@ -226,6 +227,10 @@ export interface ActionMap {
   };
   'config:saveSource': { payload: { text: string }; data: Record<string, never> };
   'config:exportTo': { payload: { path: string }; data: { path: string } };
+  'config:exportFile': {
+    payload: { workspaceId: string; configId: string; path: string };
+    data: { path: string };
+  };
   'form:snapshot': { payload: Record<string, never>; data: FormResultData };
   'form:validate': { payload: Record<string, never>; data: FormResultData };
   'form:render': { payload: Record<string, never>; data: FormResultData };
@@ -254,6 +259,14 @@ export interface ActionMap {
     data: { path: string };
   };
   'archive:import': { payload: { path: string }; data: ArchiveImportResult };
+  'file:openDialog': {
+    payload: { title?: string; patterns?: string[] };
+    data: { path: string | null };
+  };
+  'file:saveDialog': {
+    payload: { title?: string; defaultName?: string; patterns?: string[] };
+    data: { path: string | null };
+  };
   'logs:path': { payload: Record<string, never>; data: { path: string } };
   'logs:open': { payload: Record<string, never>; data: Record<string, never> };
   'app:dataDir': { payload: Record<string, never>; data: { path: string } };

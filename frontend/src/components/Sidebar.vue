@@ -9,6 +9,7 @@ import { useAppStore } from '../stores/app';
 import { useNotificationStore } from '../stores/notification';
 import { useWizardStore } from '../stores/wizard';
 import { getIpc } from '../ipc';
+import { splitName } from '../utils/nameParts';
 import type { ConfigInfo, NavWorkspace, ProjectInfo } from '../ipc/types';
 
 const route = useRoute();
@@ -33,9 +34,14 @@ const dragSession = ref<DragSessionState | null>(null);
 const dropTarget = ref<DropTargetState | null>(null);
 
 const isSettings = computed(() => route.name === 'settings');
+const showExt = computed(() => settingsStore.settings.showFileExtension === true);
 const currentProject = computed(() =>
   projectStore.projects.find((p) => p.id === projectStore.currentProjectId)
 );
+
+function displayName(config: ConfigInfo): string {
+  return showExt.value ? config.name : splitName(config.name).file;
+}
 
 const categories = [
   { id: 'general', name: '常规' },
@@ -130,16 +136,20 @@ function joinPath(dir: string, name: string): string {
 }
 
 async function exportConfig(config: ConfigInfo, workspaceId: string) {
-  const defaultPath = joinPath(settingsStore.settings.defaultPath ?? '', config.name + '.zip');
-  const path = await ui.prompt({ title: '存档包导出路径', defaultValue: defaultPath });
-  if (!path) {
+  const defaultName = joinPath(settingsStore.settings.defaultPath ?? '', config.name);
+  const picked = await getIpc().send('file:saveDialog', {
+    title: '导出配置',
+    defaultName,
+    patterns: ['*.*']
+  });
+  if (!picked.path) {
     return;
   }
   try {
-    const res = await getIpc().send('archive:exportConfig', {
+    const res = await getIpc().send('config:exportFile', {
       workspaceId,
       configId: config.id,
-      path
+      path: picked.path
     });
     notifications.add('ok', `已导出：${res.path}`);
     app.setStatus(`已导出：${res.path}`);
@@ -214,15 +224,19 @@ async function deleteConfig(config: ConfigInfo, workspaceId: string) {
 }
 
 async function exportWorkspace(workspace: NavWorkspace) {
-  const defaultPath = joinPath(settingsStore.settings.defaultPath ?? '', workspace.name + '.zip');
-  const path = await ui.prompt({ title: '存档包导出路径', defaultValue: defaultPath });
-  if (!path) {
+  const defaultName = joinPath(settingsStore.settings.defaultPath ?? '', workspace.name + '.zip');
+  const picked = await getIpc().send('file:saveDialog', {
+    title: '导出工作空间存档',
+    defaultName,
+    patterns: ['*.zip']
+  });
+  if (!picked.path) {
     return;
   }
   try {
     const res = await getIpc().send('archive:exportWorkspace', {
       workspaceId: workspace.id,
-      path
+      path: picked.path
     });
     notifications.add('ok', `已导出：${res.path}`);
   } catch (error) {
@@ -691,7 +705,7 @@ function configRowClass(config: ConfigInfo, workspaceId: string) {
                   @dragend="resetDrag"
                 >
                   <span>🌐</span>
-                  <span class="name flex-1 truncate">{{ cfg.name }}</span>
+                <span class="name flex-1 truncate">{{ displayName(cfg) }}</span>
                   <span v-if="cfg.pluginMissing" class="ferry-badge missing">缺插件</span>
                   <span class="ferry-hover-op" @click.stop="openConfigMenu($event, cfg, ws.id)">⋯</span>
                 </div>
@@ -731,7 +745,7 @@ function configRowClass(config: ConfigInfo, workspaceId: string) {
               @dragend="resetDrag"
             >
               <span>🌐</span>
-              <span class="name flex-1 truncate">{{ cfg.name }}</span>
+            <span class="name flex-1 truncate">{{ displayName(cfg) }}</span>
               <span v-if="cfg.pluginMissing" class="ferry-badge missing">缺插件</span>
               <span class="ferry-hover-op" @click.stop="openConfigMenu($event, cfg, '')">⋯</span>
             </div>

@@ -60,6 +60,16 @@ async function importArchive() {
   }
 }
 
+async function pickImportFile() {
+  const res = await getIpc().send('file:openDialog', {
+    title: '选择存档包',
+    patterns: ['*.zip']
+  });
+  if (res.path) {
+    importPath.value = res.path;
+  }
+}
+
 async function loadLogPath() {
   try {
     const res = await getIpc().send('logs:path', {});
@@ -109,6 +119,11 @@ const tooltipShowDelay = computed({
 const tooltipShowDelayEnabled = computed({
   get: () => settingsStore.settings.tooltipShowDelayEnabled === true,
   set: (value: boolean) => void settingsStore.save({ tooltipShowDelayEnabled: value })
+});
+
+const showFileExtension = computed({
+  get: () => settingsStore.settings.showFileExtension === true,
+  set: (value: boolean) => void settingsStore.save({ showFileExtension: value })
 });
 
 // ---------- 插件管理 ----------
@@ -242,7 +257,8 @@ onMounted(() => {
       </label>
       <div class="ferry-settings-row">
         <span class="ferry-settings-label">导入存档包</span>
-        <input v-model="importPath" class="ferry-input ferry-settings-input" placeholder="zip 路径" />
+        <button class="ferry-btn small" @click="pickImportFile">选择文件…</button>
+        <span class="ferry-settings-value">{{ importPath || '未选择' }}</span>
         <button class="ferry-btn small" @click="importArchive">导入</button>
       </div>
       <div class="ferry-settings-row">
@@ -269,6 +285,10 @@ onMounted(() => {
       <label class="ferry-settings-row">
         <span class="ferry-settings-label">悬停显示字段说明</span>
         <input v-model="tooltipEnabled" type="checkbox" class="ferry-check" />
+      </label>
+      <label class="ferry-settings-row">
+        <span class="ferry-settings-label">显示配置文件扩展名</span>
+        <input v-model="showFileExtension" type="checkbox" class="ferry-check" />
       </label>
       <label class="ferry-settings-row">
         <span class="ferry-settings-label">悬停延迟显示（ms）</span>

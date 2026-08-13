@@ -123,7 +123,7 @@ public class WorkspaceServiceTests : IDisposable
         var copy = _service.DuplicateConfig(ws.Id, source.Id);
 
         Assert.NotEqual(source.Id, copy.Id);
-        Assert.Equal("nginx.conf - 副本", copy.Name);
+        Assert.Equal("nginx - 副本.conf", copy.Name);
         Assert.Equal(source.SourceText, copy.SourceText);
         Assert.Equal(source.Values["workerProcesses"], copy.Values["workerProcesses"]);
         Assert.True(copy.Enabled["http"]);

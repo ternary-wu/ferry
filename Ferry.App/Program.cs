@@ -140,6 +140,7 @@ public static class Program
                 "config:create" => ConfigCreate(ctx, request!),
                 "config:duplicate" => ConfigDuplicate(ctx, request!),
                 "config:rename" => ConfigRename(ctx, request!),
+                "config:exportFile" => ConfigExportFile(ctx, request!),
                 "config:open" => ConfigOpen(ctx, request!),
                 "config:delete" => ConfigDelete(ctx, request!),
                 "config:move" => ConfigMove(ctx, request!),
@@ -168,6 +169,8 @@ public static class Program
                 "archive:exportWorkspace" => ArchiveExportWorkspace(ctx, request!),
                 "archive:exportConfig" => ArchiveExportConfig(ctx, request!),
                 "archive:import" => ArchiveImport(ctx, request!),
+                "file:openDialog" => FileOpenDialog(window, request!),
+                "file:saveDialog" => FileSaveDialog(window, request!),
                 "logs:path" => LogsPath(),
                 "logs:open" => LogsOpen(),
                 "app:dataDir" => AppDataDir(),
@@ -429,6 +432,45 @@ public static class Program
         {
             ["configId"] = renamed.Id,
             ["name"] = renamed.Name
+        });
+    }
+
+    /// <summary>把配置源码导出为配置文件本身（不打包 zip）。</summary>
+    private static JsonObject ConfigExportFile(HostContext ctx, JsonObject request)
+    {
+        var workspaceId = request["workspaceId"]!.GetValue<string>();
+        var configId = request["configId"]!.GetValue<string>();
+        var path = request["path"]!.GetValue<string>();
+        var config = ctx.Workspaces.LoadConfig(workspaceId, configId)
+            ?? throw new InvalidOperationException("配置不存在");
+        var text = ConfigReverseParser.AppendUnrecognized(config.SourceText, config.Unrecognized);
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
+        File.WriteAllText(path, text);
+        return Ok(new JsonObject { ["path"] = path });
+    }
+
+    private static JsonObject FileOpenDialog(PhotinoWindow window, JsonObject request)
+    {
+        var title = request["title"]?.GetValue<string>() ?? "选择文件";
+        var patterns = request["patterns"] is JsonArray array
+            ? array.Select(n => n?.GetValue<string>() ?? "*.*").ToArray()
+            : new[] { "*.*" };
+        var paths = window.ShowOpenFile(string.Empty, title, false, new[] { (title, patterns) });
+        var path = paths is { Length: > 0 } ? paths[0] : null;
+        return Ok(new JsonObject { ["path"] = path });
+    }
+
+    private static JsonObject FileSaveDialog(PhotinoWindow window, JsonObject request)
+    {
+        var title = request["title"]?.GetValue<string>() ?? "保存文件";
+        var defaultName = request["defaultName"]?.GetValue<string>() ?? string.Empty;
+        var patterns = request["patterns"] is JsonArray array
+            ? array.Select(n => n?.GetValue<string>() ?? "*.*").ToArray()
+            : new[] { "*.*" };
+        var path = window.ShowSaveFile(defaultName, title, new[] { (title, patterns) });
+        return Ok(new JsonObject
+        {
+            ["path"] = string.IsNullOrEmpty(path) ? null : path
         });
     }
 

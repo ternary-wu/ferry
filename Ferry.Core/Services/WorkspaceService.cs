@@ -171,7 +171,7 @@ public sealed class WorkspaceService
             Id = NewId(),
             ProjectId = source.ProjectId,
             WorkspaceId = source.WorkspaceId,
-            Name = string.IsNullOrWhiteSpace(name) ? source.Name + " - 副本" : name,
+            Name = string.IsNullOrWhiteSpace(name) ? InsertCopySuffix(source.Name) : name,
             PluginKey = source.PluginKey,
             PluginVersion = source.PluginVersion,
             SourceText = source.SourceText,
@@ -181,6 +181,17 @@ public sealed class WorkspaceService
         };
         _store.SaveConfig(duplicated);
         return duplicated;
+    }
+
+    /// <summary>把“ - 副本”插入文件名部分，不破坏扩展名：nginx.conf → nginx - 副本.conf。</summary>
+    private static string InsertCopySuffix(string name)
+    {
+        var idx = name.LastIndexOf('.');
+        if (idx <= 0)
+        {
+            return name + " - 副本";
+        }
+        return name[..idx] + " - 副本" + name[idx..];
     }
 
     /// <summary>重命名配置：只改名称，不触碰源码/缓存/版本。</summary>
