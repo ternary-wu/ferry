@@ -151,6 +151,8 @@ async function refreshTrash() {
 async function restoreTrash(item: TrashItem) {
   try {
     const res = await getIpc().send('archive:import', { path: item.path });
+    // 还原成功后从回收站移除该文件，避免重复点击产生多份副本
+    await getIpc().send('trash:delete', { path: item.path });
     await projectStore.loadProjects();
     await projectStore.loadNav();
     appStore.setStatus(`已还原：${res.imported} 个配置`);

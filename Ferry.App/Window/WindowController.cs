@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Drawing;
+using Microsoft.Win32;
 using Photino.NET;
 
 namespace Ferry.App.Window;
@@ -22,6 +23,7 @@ public sealed class WindowController
     private const uint WmGetMinMaxInfo = 0x0024;
     private const uint WmNcHitTest = 0x0084;
     private const uint WmNcPaint = 0x0085;
+    private const uint WmNcActivate = 0x0086;
     private const int HtCaption = 0x0002;
     private const int HtClient = 0x0001;
     private const int HtLeft = 10;
@@ -61,6 +63,7 @@ public sealed class WindowController
     private readonly string _statePath;
     private readonly object _saveLock = new();
     private IntPtr _hwnd = IntPtr.Zero;
+    private int _frameColorBgr = 0x00171717;
     private int _minW;
     private int _minH;
     private SUBCLASSPROC? _subclassProc;
@@ -122,6 +125,25 @@ public sealed class WindowController
     }
 
     public void Close() => _window.Close();
+
+    /// <summary>
+    /// 让原生 NC Resize 边框跟随主题色：深色 #171717，浅色 #F5F5F7。
+    /// System 主题按 Windows 应用浅色偏好判断。
+    /// </summary>
+    public void SetTheme(string? theme)
+    {
+        var light = theme switch
+        {
+            "light" => true,
+            "dark" => false,
+            _ => IsSystemLightTheme()
+        };
+        _frameColorBgr = light ? 0x00F5F5F7 : 0x00171717;
+        if (_hwnd != IntPtr.Zero)
+        {
+            PaintNonClientFrame(_hwnd);
+        }
+    }
 
     /// <summary>
     /// 原生窗口拖动：向系统发送 WM_NCLBUTTONDOWN / HTCAPTION，由 Windows 接管拖动，
@@ -197,6 +219,20 @@ public sealed class WindowController
         catch
         {
             // 忽略：保持系统默认
+        }
+    }
+
+    private static bool IsSystemLightTheme()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(
+                @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+            return key?.GetValue("AppsUseLightTheme") is int value && value == 1;
+        }
+        catch
+        {
+            return false;
         }
     }
 
@@ -327,10 +363,24 @@ public sealed class WindowController
                 // 视觉保持无边框，同时避免 DWM 透明边框透出桌面（白边）。
                 PaintNonClientFrame(hWnd);
                 return IntPtr.Zero;
+            case WmNcActivate:
+                // 抑制系统默认激活边框（灰/白圈），并保持主题色边框
+                PaintNonClientFrame(hWnd);
+                return new IntPtr(1);
             case WmGetMinMaxInfo:
                 var mmi = Marshal.PtrToStructure<MINMAXINFO>(lParam);
                 mmi.ptMinTrackSize.X = _minW;
                 mmi.ptMinTrackSize.Y = _minH;
+                // 最大化时窗口矩形 = 当前显示器工作区（不覆盖任务栏）
+                var mmMonitor = MonitorFromWindow(hWnd, MonitorDefaultToNearest);
+                var mmInfo = new MONITORINFO { cbSize = (uint)Marshal.SizeOf<MONITORINFO>() };
+                if (GetMonitorInfo(mmMonitor, ref mmInfo))
+                {
+                    mmi.ptMaxPosition.X = mmInfo.rcWork.Left;
+                    mmi.ptMaxPosition.Y = mmInfo.rcWork.Top;
+                    mmi.ptMaxSize.X = mmInfo.rcWork.Right - mmInfo.rcWork.Left;
+                    mmi.ptMaxSize.Y = mmInfo.rcWork.Bottom - mmInfo.rcWork.Top;
+                }
                 Marshal.StructureToPtr(mmi, lParam, false);
                 return IntPtr.Zero;
             case WmNcHitTest:
@@ -360,8 +410,7 @@ public sealed class WindowController
             }
             try
             {
-                // 0x00171717 = #171717（--ferry-surface）的 GDI BGR
-                var brush = CreateSolidBrush(0x00171717);
+                var brush = CreateSolidBrush((uint)_frameColorBgr);
                 if (brush == IntPtr.Zero)
                 {
                     return;

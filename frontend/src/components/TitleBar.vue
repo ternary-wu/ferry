@@ -17,10 +17,35 @@ const breadcrumb = computed(() => {
   return `${project?.name ?? '项目'} / ${workspace?.name ?? '未归类'} / ${configStore.current.name}`;
 });
 
+let mouseDown = false;
+let dragStarted = false;
+let dragStartX = 0;
+let dragStartY = 0;
+
 function onBarMouseDown(event: MouseEvent) {
   if ((event.target as HTMLElement).closest('button')) return;
   if (event.button !== 0) return;
-  void windowStore.beginDrag();
+  mouseDown = true;
+  dragStarted = false;
+  dragStartX = event.clientX;
+  dragStartY = event.clientY;
+}
+
+function onBarMouseMove(event: MouseEvent) {
+  if (!mouseDown || dragStarted) {
+    return;
+  }
+  const dx = event.clientX - dragStartX;
+  const dy = event.clientY - dragStartY;
+  if (Math.abs(dx) + Math.abs(dy) > 4) {
+    dragStarted = true;
+    void windowStore.beginDrag();
+  }
+}
+
+function onBarMouseUp() {
+  mouseDown = false;
+  dragStarted = false;
 }
 
 function onBarDblClick(event: MouseEvent) {
@@ -33,6 +58,8 @@ function onBarDblClick(event: MouseEvent) {
   <header
     class="ferry-titlebar flex h-8 shrink-0 select-none items-center justify-between border-b border-[var(--ferry-border-soft)] bg-[var(--ferry-surface)]"
     @mousedown="onBarMouseDown"
+    @mousemove="onBarMouseMove"
+    @mouseup="onBarMouseUp"
     @dblclick="onBarDblClick"
   >
     <span class="text-xs text-[var(--ferry-text-muted)]">Ferry</span>

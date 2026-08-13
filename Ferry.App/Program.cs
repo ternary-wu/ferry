@@ -66,6 +66,8 @@ public static class Program
             .SetChromeless(true);
         var windowController = new Window.WindowController(window);
         windowController.Initialize();
+        windowController.SetTheme(
+            workspaceStore.LoadSettings().GetValueOrDefault("theme")?.ToString());
         window.RegisterWebMessageReceivedHandler((sender, message) =>
             HandleMessage(sender, context, windowController, message, selfCheck));
         Log("window-created");
@@ -147,7 +149,7 @@ public static class Program
                 "config:saveSource" => ConfigSaveSource(ctx, request!),
                 "config:exportTo" => ConfigExportTo(ctx, request!),
                 "settings:get" => SettingsGet(ctx),
-                "settings:save" => SettingsSave(ctx, request!),
+                "settings:save" => SettingsSave(ctx, request!, windowController),
                 "form:snapshot" => FormResult(ctx, new SnapshotCommand()),
                 "form:validate" => FormResult(ctx, new ValidateCommand()),
                 "form:render" => FormResult(ctx, new RenderCommand()),
@@ -440,12 +442,17 @@ public static class Program
     private static JsonObject SettingsGet(HostContext ctx)
         => Ok(new JsonObject { ["settings"] = Node(ctx.Workspaces.LoadSettings()) });
 
-    private static JsonObject SettingsSave(HostContext ctx, JsonObject request)
+    private static JsonObject SettingsSave(
+        HostContext ctx,
+        JsonObject request,
+        Window.WindowController windowController)
     {
         var settings = request["settings"] as JsonObject
             ?? throw new InvalidOperationException("未指定 settings 对象");
         ctx.Workspaces.SaveSettings(ConfigImporter.FromJsonObject(settings));
-        return Ok(new JsonObject { ["settings"] = Node(ctx.Workspaces.LoadSettings()) });
+        var loaded = ctx.Workspaces.LoadSettings();
+        windowController.SetTheme(loaded.GetValueOrDefault("theme")?.ToString());
+        return Ok(new JsonObject { ["settings"] = Node(loaded) });
     }
 
     private static JsonObject ConfigOpen(HostContext ctx, JsonObject request)
