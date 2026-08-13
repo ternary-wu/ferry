@@ -516,163 +516,167 @@ function configRowClass(config: ConfigInfo, workspaceId: string) {
 </script>
 
 <template>
-  <aside class="ferry-sidebar flex w-[270px] shrink-0 flex-col overflow-y-auto border-r border-[var(--ferry-border-soft)] bg-[var(--ferry-surface)]">
-    <div class="mb-4 pl-1 text-xl font-semibold">Ferry</div>
-
-    <template v-if="!isSettings">
-      <div class="relative">
-        <button
-          class="ferry-project-btn flex w-full items-center gap-2 rounded-xl border text-sm"
-          :class="{ open: projectMenuOpen }"
-          @click="projectMenuOpen = !projectMenuOpen"
-          @contextmenu.prevent="openProjectContextMenu"
-        >
-          <span class="flex-1 truncate text-left">{{ currentProject?.name ?? '选择项目' }}</span>
-          <span class="text-[11px] text-[var(--ferry-text-muted)]">▾</span>
-        </button>
-        <div
-          v-if="projectMenuOpen"
-          class="ferry-project-menu absolute left-0 right-0 top-full z-50 mt-1.5 rounded-xl border border-[var(--ferry-border)] bg-[#252525] p-1.5 shadow-lg"
-        >
-          <div
-            v-for="p in projectStore.projects"
-            :key="p.id"
-            class="ferry-menu-row"
-            :class="{ active: p.id === projectStore.currentProjectId }"
-            @click="selectProject(p)"
+  <aside class="ferry-sidebar flex w-[270px] shrink-0 flex-col overflow-hidden border-r border-[var(--ferry-border-soft)] bg-[var(--ferry-surface)]">
+    <div class="ferry-sidebar-header">
+      <div class="mb-4 pl-1 text-xl font-semibold">Ferry</div>
+      <template v-if="!isSettings">
+        <div class="relative">
+          <button
+            class="ferry-project-btn flex w-full items-center gap-2 rounded-xl border text-sm"
+            :class="{ open: projectMenuOpen }"
+            @click="projectMenuOpen = !projectMenuOpen"
+            @contextmenu.prevent="openProjectContextMenu"
           >
-            <span class="flex-1 truncate">{{ p.name }}</span>
-            <span v-if="p.id === projectStore.currentProjectId" class="text-[var(--ferry-primary)]">✓</span>
-          </div>
-          <div class="ferry-menu-sep"></div>
-          <div class="ferry-menu-row" @click="createProject">＋ 新建项目</div>
-          <div class="ferry-menu-row" @click="renameProject">重命名</div>
-          <div class="ferry-menu-row danger" @click="deleteProject">删除项目</div>
-        </div>
-      </div>
-
-      <button class="ferry-new-config-btn" @click="wizardStore.openWizard()">＋ 新建配置</button>
-
-      <section class="mt-6">
-        <div class="ferry-section-row" @click="wsCollapsed = !wsCollapsed">
-          <span>工作空间</span>
-          <span class="flex-1"></span>
-          <span class="ferry-hover-op" title="新建配置" @click.stop="wizardStore.openWizard()">＋</span>
-          <span class="text-[10px] text-[var(--ferry-text-dim)]">{{ wsCollapsed ? '▸' : '▾' }}</span>
-        </div>
-        <div v-if="!wsCollapsed" class="mt-1">
-          <div v-if="projectStore.nav.workspaces.length === 0" class="ferry-hint">暂无工作空间</div>
-          <div v-for="ws in projectStore.nav.workspaces" :key="ws.id" class="group">
+            <span class="flex-1 truncate text-left">{{ currentProject?.name ?? '选择项目' }}</span>
+            <span class="text-[11px] text-[var(--ferry-text-muted)]">▾</span>
+          </button>
+          <div
+            v-if="projectMenuOpen"
+            class="ferry-project-menu absolute left-0 right-0 top-full z-50 mt-1.5 rounded-xl border border-[var(--ferry-border)] bg-[#252525] p-1.5 shadow-lg"
+          >
             <div
-              class="ferry-tree-row"
-              :class="workspaceHeaderClass(ws)"
-              @click="toggleWsOpen(ws.id)"
-              @contextmenu.prevent="openWorkspaceMenu($event, ws)"
-              @dragover.prevent="onWsDragOver(ws.id)"
-              @dragleave="onWsDragLeave($event, ws.id)"
-              @drop.prevent.stop="onWorkspaceDrop(ws.id)"
+              v-for="p in projectStore.projects"
+              :key="p.id"
+              class="ferry-menu-row"
+              :class="{ active: p.id === projectStore.currentProjectId }"
+              @click="selectProject(p)"
             >
-              <span class="text-[10px] text-[var(--ferry-text-dim)]">{{ isWsOpen(ws.id) ? '▾' : '▸' }}</span>
-              <span class="name flex-1 truncate">{{ ws.name }}</span>
-              <span
-                class="ferry-hover-op"
-                title="快速新建配置"
-                @click.stop="wizardStore.openWizard({ workspaceId: ws.id })"
-              >＋</span>
-              <span class="ferry-hover-op" @click.stop="openWorkspaceMenu($event, ws)">⋯</span>
+              <span class="flex-1 truncate">{{ p.name }}</span>
+              <span v-if="p.id === projectStore.currentProjectId" class="text-[var(--ferry-primary)]">✓</span>
             </div>
-            <div v-if="isWsOpen(ws.id)" class="pl-3.5">
-              <div v-if="ws.configs.length === 0" class="ferry-hint">暂无配置</div>
+            <div class="ferry-menu-sep"></div>
+            <div class="ferry-menu-row" @click="createProject">＋ 新建项目</div>
+            <div class="ferry-menu-row" @click="renameProject">重命名</div>
+            <div class="ferry-menu-row danger" @click="deleteProject">删除项目</div>
+          </div>
+        </div>
+        <button class="ferry-new-config-btn" @click="wizardStore.openWizard()">＋ 新建配置</button>
+      </template>
+    </div>
+
+    <nav class="ferry-sidebar-nav min-h-0 flex-1 overflow-y-auto">
+      <template v-if="!isSettings">
+        <section class="mt-6">
+          <div class="ferry-section-row" @click="wsCollapsed = !wsCollapsed">
+            <span>工作空间</span>
+            <span class="flex-1"></span>
+            <span class="ferry-hover-op" title="新建配置" @click.stop="wizardStore.openWizard()">＋</span>
+            <span class="text-[10px] text-[var(--ferry-text-dim)]">{{ wsCollapsed ? '▸' : '▾' }}</span>
+          </div>
+          <div v-if="!wsCollapsed" class="mt-1">
+            <div v-if="projectStore.nav.workspaces.length === 0" class="ferry-hint">暂无工作空间</div>
+            <div v-for="ws in projectStore.nav.workspaces" :key="ws.id" class="group">
               <div
-                v-for="cfg in ws.configs"
-                :key="cfg.id"
-                class="ferry-config-row"
-                :class="configRowClass(cfg, ws.id)"
-                draggable="true"
-                @click="openConfig(cfg, ws.id)"
-                @contextmenu.prevent="openConfigMenu($event, cfg, ws.id)"
-                @dragstart="onConfigDragStart($event, cfg, ws.id)"
-                @dragover="onConfigDragOver($event, ws.id, cfg.id)"
-                @dragleave="onConfigDragLeave($event, ws.id, cfg.id)"
-                @drop.prevent.stop="onConfigDrop(ws.id, cfg.id)"
-                @dragend="resetDrag"
+                class="ferry-tree-row"
+                :class="workspaceHeaderClass(ws)"
+                @click="toggleWsOpen(ws.id)"
+                @contextmenu.prevent="openWorkspaceMenu($event, ws)"
+                @dragover.prevent="onWsDragOver(ws.id)"
+                @dragleave="onWsDragLeave($event, ws.id)"
+                @drop.prevent.stop="onWorkspaceDrop(ws.id)"
               >
-                <span>🌐</span>
-                <span class="name flex-1 truncate">{{ cfg.name }}</span>
-                <span v-if="cfg.pluginMissing" class="ferry-badge missing">缺插件</span>
-                <span class="ferry-hover-op" @click.stop="openConfigMenu($event, cfg, ws.id)">⋯</span>
+                <span class="text-[10px] text-[var(--ferry-text-dim)]">{{ isWsOpen(ws.id) ? '▾' : '▸' }}</span>
+                <span class="name flex-1 truncate">{{ ws.name }}</span>
+                <span
+                  class="ferry-hover-op"
+                  title="快速新建配置"
+                  @click.stop="wizardStore.openWizard({ workspaceId: ws.id })"
+                >＋</span>
+                <span class="ferry-hover-op" @click.stop="openWorkspaceMenu($event, ws)">⋯</span>
+              </div>
+              <div v-if="isWsOpen(ws.id)" class="pl-3.5">
+                <div v-if="ws.configs.length === 0" class="ferry-hint">暂无配置</div>
+                <div
+                  v-for="cfg in ws.configs"
+                  :key="cfg.id"
+                  class="ferry-config-row"
+                  :class="configRowClass(cfg, ws.id)"
+                  draggable="true"
+                  @click="openConfig(cfg, ws.id)"
+                  @contextmenu.prevent="openConfigMenu($event, cfg, ws.id)"
+                  @dragstart="onConfigDragStart($event, cfg, ws.id)"
+                  @dragover="onConfigDragOver($event, ws.id, cfg.id)"
+                  @dragleave="onConfigDragLeave($event, ws.id, cfg.id)"
+                  @drop.prevent.stop="onConfigDrop(ws.id, cfg.id)"
+                  @dragend="resetDrag"
+                >
+                  <span>🌐</span>
+                  <span class="name flex-1 truncate">{{ cfg.name }}</span>
+                  <span v-if="cfg.pluginMissing" class="ferry-badge missing">缺插件</span>
+                  <span class="ferry-hover-op" @click.stop="openConfigMenu($event, cfg, ws.id)">⋯</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section
-        class="ferry-sidebar-drop-target mt-6 rounded-xl"
-        :class="unassignedSectionClass()"
-        @dragover.prevent="onWsDragOver('')"
-        @dragleave="onWsDragLeave($event, '')"
-        @drop.prevent.stop="onWorkspaceDrop('')"
-      >
-        <div class="ferry-section-row" @click="cfgCollapsed = !cfgCollapsed">
-          <span>配置</span>
-          <span class="ferry-count">{{ projectStore.nav.unassigned.length }}</span>
-          <span class="flex-1"></span>
-          <span class="ferry-hover-op" title="新建未归类配置" @click.stop="wizardStore.openWizard()">＋</span>
-          <span class="text-[10px] text-[var(--ferry-text-dim)]">{{ cfgCollapsed ? '▸' : '▾' }}</span>
-        </div>
-        <div v-if="!cfgCollapsed" class="mt-1">
-          <div v-if="projectStore.nav.unassigned.length === 0" class="ferry-hint">暂无未归类配置</div>
-          <div
-            v-for="cfg in projectStore.nav.unassigned"
-            :key="cfg.id"
-            class="ferry-config-row"
-            :class="configRowClass(cfg, '')"
-            draggable="true"
-            @click="openConfig(cfg, '')"
-            @contextmenu.prevent="openConfigMenu($event, cfg, '')"
-            @dragstart="onConfigDragStart($event, cfg, '')"
-            @dragover="onConfigDragOver($event, '', cfg.id)"
-            @dragleave="onConfigDragLeave($event, '', cfg.id)"
-            @drop.prevent.stop="onConfigDrop('', cfg.id)"
-            @dragend="resetDrag"
-          >
-            <span>🌐</span>
-            <span class="name flex-1 truncate">{{ cfg.name }}</span>
-            <span v-if="cfg.pluginMissing" class="ferry-badge missing">缺插件</span>
-            <span class="ferry-hover-op" @click.stop="openConfigMenu($event, cfg, '')">⋯</span>
+        <section
+          class="ferry-sidebar-drop-target mt-6 rounded-xl"
+          :class="unassignedSectionClass()"
+          @dragover.prevent="onWsDragOver('')"
+          @dragleave="onWsDragLeave($event, '')"
+          @drop.prevent.stop="onWorkspaceDrop('')"
+        >
+          <div class="ferry-section-row" @click="cfgCollapsed = !cfgCollapsed">
+            <span>配置</span>
+            <span class="ferry-count">{{ projectStore.nav.unassigned.length }}</span>
+            <span class="flex-1"></span>
+            <span class="ferry-hover-op" title="新建未归类配置" @click.stop="wizardStore.openWizard()">＋</span>
+            <span class="text-[10px] text-[var(--ferry-text-dim)]">{{ cfgCollapsed ? '▸' : '▾' }}</span>
           </div>
+          <div v-if="!cfgCollapsed" class="mt-1">
+            <div v-if="projectStore.nav.unassigned.length === 0" class="ferry-hint">暂无未归类配置</div>
+            <div
+              v-for="cfg in projectStore.nav.unassigned"
+              :key="cfg.id"
+              class="ferry-config-row"
+              :class="configRowClass(cfg, '')"
+              draggable="true"
+              @click="openConfig(cfg, '')"
+              @contextmenu.prevent="openConfigMenu($event, cfg, '')"
+              @dragstart="onConfigDragStart($event, cfg, '')"
+              @dragover="onConfigDragOver($event, '', cfg.id)"
+              @dragleave="onConfigDragLeave($event, '', cfg.id)"
+              @drop.prevent.stop="onConfigDrop('', cfg.id)"
+              @dragend="resetDrag"
+            >
+              <span>🌐</span>
+              <span class="name flex-1 truncate">{{ cfg.name }}</span>
+              <span v-if="cfg.pluginMissing" class="ferry-badge missing">缺插件</span>
+              <span class="ferry-hover-op" @click.stop="openConfigMenu($event, cfg, '')">⋯</span>
+            </div>
+          </div>
+        </section>
+
+        <div
+          v-if="dragSession"
+          class="ferry-ws-drop-zone"
+          :class="{ 'drag-over': dropTarget?.mode === 'create-workspace' }"
+          @dragover.prevent="onCreateZoneDragOver"
+          @dragleave="onCreateZoneDragLeave"
+          @drop.prevent.stop="onCreateWorkspaceDrop"
+        >
+          ＋ 创建工作空间（拖到此处创建并移入）
         </div>
-      </section>
+      </template>
 
-      <div
-        v-if="dragSession"
-        class="ferry-ws-drop-zone"
-        :class="{ 'drag-over': dropTarget?.mode === 'create-workspace' }"
-        @dragover.prevent="onCreateZoneDragOver"
-        @dragleave="onCreateZoneDragLeave"
-        @drop.prevent.stop="onCreateWorkspaceDrop"
-      >
-        ＋ 创建工作空间（拖到此处创建并移入）
-      </div>
+      <template v-else>
+        <div class="mb-3 text-sm font-semibold text-[var(--ferry-text-muted)]">设置</div>
+        <div
+          v-for="cat in categories"
+          :key="cat.id"
+          class="ferry-nav-row"
+          :class="{ active: ui.settingsCategory === cat.id }"
+          @click="ui.settingsCategory = cat.id"
+        >
+          {{ cat.name }}
+        </div>
+      </template>
+    </nav>
 
-      <div class="flex-1"></div>
-      <div class="ferry-nav-row" @click="goSettings">⚙ 设置</div>
-    </template>
-
-    <template v-else>
-      <div class="mb-3 text-sm font-semibold text-[var(--ferry-text-muted)]">设置</div>
-      <div
-        v-for="cat in categories"
-        :key="cat.id"
-        class="ferry-nav-row"
-        :class="{ active: ui.settingsCategory === cat.id }"
-        @click="ui.settingsCategory = cat.id"
-      >
-        {{ cat.name }}
-      </div>
-      <div class="flex-1"></div>
-      <div class="ferry-nav-row" @click="goHome">← 返回</div>
-    </template>
+    <footer class="ferry-sidebar-footer">
+      <div v-if="!isSettings" class="ferry-nav-row" @click="goSettings">⚙ 设置</div>
+      <div v-else class="ferry-nav-row" @click="goHome">← 返回</div>
+    </footer>
   </aside>
 </template>

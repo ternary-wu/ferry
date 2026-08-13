@@ -143,7 +143,7 @@ textarea {
   justify-content: center;
   gap: 6px;
   width: 100%;
-  margin-top: 10px;
+  margin-top: 14px;
   min-height: 48px;
   padding: 0 14px;
   border-radius: 12px;
@@ -169,6 +169,13 @@ textarea {
 .ferry-new-config-btn:focus-visible {
   outline: 2px solid rgba(47, 111, 235, 0.5);
   outline-offset: 2px;
+}
+
+.ferry-sidebar-footer {
+  flex-shrink: 0;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ferry-border-soft);
 }
 
 .ferry-project-menu {
