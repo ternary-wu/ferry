@@ -34,10 +34,12 @@ public static class Program
     };
     private static readonly string LogPath =
         Path.Combine(AppContext.BaseDirectory, "ferry-spike-log.txt");
+    private static int s_mainThreadId;
 
     [STAThread]
     public static void Main()
     {
+        s_mainThreadId = Environment.CurrentManagedThreadId;
         Window.WindowController.EnablePerMonitorV2Dpi();
         FerryLog.Configure();
         Log("start");
@@ -442,8 +444,20 @@ public static class Program
             ("Ferry 存档", new[] { "*.ferry" }),
             ("所有文件", new[] { "*.*" })
         };
-        var paths = window.ShowOpenFile(string.Empty, title, false, filters);
-        var path = paths is { Length: > 0 } ? paths[0] : null;
+        string? path = null;
+        void Show()
+        {
+            var paths = window.ShowOpenFile(string.Empty, title, false, filters);
+            path = paths is { Length: > 0 } ? paths[0] : null;
+        }
+        if (Environment.CurrentManagedThreadId == s_mainThreadId)
+        {
+            Show();
+        }
+        else
+        {
+            window.Invoke(Show);
+        }
         return Ok(new JsonObject { ["path"] = path });
     }
 
@@ -455,7 +469,19 @@ public static class Program
         {
             ("Ferry 存档", new[] { "*.ferry" })
         };
-        var path = window.ShowSaveFile(defaultName, title, filters);
+        string? path = null;
+        void Show()
+        {
+            path = window.ShowSaveFile(defaultName, title, filters);
+        }
+        if (Environment.CurrentManagedThreadId == s_mainThreadId)
+        {
+            Show();
+        }
+        else
+        {
+            window.Invoke(Show);
+        }
         return Ok(new JsonObject
         {
             ["path"] = string.IsNullOrEmpty(path) ? null : path

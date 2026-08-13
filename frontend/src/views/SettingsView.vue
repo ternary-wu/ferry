@@ -24,7 +24,6 @@ const title = computed(() => titles[ui.settingsCategory] ?? '设置');
 
 const trashItems = ref<TrashItem[]>([]);
 const trashLoading = ref(false);
-const importPath = ref('');
 const logPath = ref('');
 
 // ---------- 常规 ----------
@@ -45,27 +44,21 @@ const defaultPath = computed({
 });
 
 async function importArchive() {
-  const path = importPath.value.trim();
-  if (!path) {
+  const picked = await getIpc().send('file:openDialog', {
+    title: '选择 Ferry 存档'
+  });
+  if (!picked.path) {
+    // 用户取消选择，不产生错误
     return;
   }
+  const path = picked.path;
   try {
     const res = await getIpc().send('archive:import', { path });
-    importPath.value = '';
     await projectStore.loadProjects();
     await projectStore.loadNav();
     appStore.setStatus(`存档导入完成：${res.imported} 个配置`);
   } catch (error) {
-    appStore.setStatus('导入失败：' + (error as Error).message, true);
-  }
-}
-
-async function pickImportFile() {
-  const res = await getIpc().send('file:openDialog', {
-    title: '选择 Ferry 存档'
-  });
-  if (res.path) {
-    importPath.value = res.path;
+    appStore.setStatus((error as Error).message, true);
   }
 }
 
@@ -256,8 +249,6 @@ onMounted(() => {
       </label>
       <div class="ferry-settings-row">
         <span class="ferry-settings-label">导入存档包</span>
-        <button class="ferry-btn small" @click="pickImportFile">选择文件…</button>
-        <span class="ferry-settings-value">{{ importPath || '未选择' }}</span>
         <button class="ferry-btn small" @click="importArchive">导入</button>
       </div>
       <div class="ferry-settings-row">
