@@ -29,17 +29,8 @@ const templateName = computed(() =>
         </div>
         <div class="flex shrink-0 items-center gap-2 pt-1">
           <button
-            v-if="dock.open"
+            v-if="!dock.open"
             class="ferry-btn small"
-            :class="{ active: dock.maximized }"
-            title="Dock 占满主工作区"
-            @click="dock.toggleMaximize()"
-          >
-            {{ dock.maximized ? '还原' : '全占' }}
-          </button>
-          <button
-            class="ferry-btn small"
-            :class="{ active: dock.open }"
             title="源码 Dock"
             @click="dock.toggle()"
           >

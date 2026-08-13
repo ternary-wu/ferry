@@ -79,7 +79,7 @@ function onResizePointerUp(event: PointerEvent) {
       <button class="ferry-dock-btn" title="仅占满主工作区" @click="dock.toggleMaximize()">
         {{ dock.maximized ? '还原' : '全占' }}
       </button>
-      <button class="ferry-dock-btn close" title="关闭源码 Dock" @click="dock.closeDock()">×</button>
+      <button class="ferry-dock-btn" title="关闭源码 Dock" @click="dock.toggle()">源码</button>
     </header>
     <div v-if="inCloseZone" class="ferry-dock-hint">松开关闭</div>
     <div class="ferry-dock-code" aria-readonly="true">
