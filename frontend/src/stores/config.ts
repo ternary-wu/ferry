@@ -4,6 +4,7 @@ import { getIpc } from '../ipc';
 import type { ConfigMeta, FormFieldSnapshot, PluginTemplateDto } from '../ipc/types';
 import type { FieldFilter } from '../utils/fieldTree';
 import { collectCollapsiblePaths } from '../utils/fieldTree';
+import { loadLocal, saveLocal } from '../utils/storage';
 
 export const useConfigStore = defineStore('config', () => {
   const current = ref<ConfigMeta | null>(null);
@@ -34,7 +35,15 @@ export const useConfigStore = defineStore('config', () => {
     pluginMissing.value = res.pluginMissing ?? false;
     templates.value = res.templates ?? [];
     search.value = '';
-    seedCollapsed();
+    const saved = loadLocal<Record<string, boolean> | null>(
+      `ferry.collapsed.${configId}`,
+      null
+    );
+    if (saved) {
+      collapsed.value = saved;
+    } else {
+      seedCollapsed();
+    }
     return res;
   }
 
@@ -62,6 +71,7 @@ export const useConfigStore = defineStore('config', () => {
 
   function toggleCollapsed(path: string) {
     collapsed.value = { ...collapsed.value, [path]: !collapsed.value[path] };
+    persistCollapsed();
   }
 
   function collapseAll() {
@@ -70,10 +80,18 @@ export const useConfigStore = defineStore('config', () => {
       map[path] = true;
     }
     collapsed.value = map;
+    persistCollapsed();
   }
 
   function expandAll() {
     collapsed.value = {};
+    persistCollapsed();
+  }
+
+  function persistCollapsed() {
+    if (current.value) {
+      saveLocal(`ferry.collapsed.${current.value.id}`, collapsed.value);
+    }
   }
 
   function applyFormResult(data: {
@@ -187,6 +205,7 @@ export const useConfigStore = defineStore('config', () => {
     toggleCollapsed,
     collapseAll,
     expandAll,
+    persistCollapsed,
     setValue,
     toggle,
     addItem,

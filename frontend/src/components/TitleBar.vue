@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useWindowStore } from '../stores/window';
 import { useProjectStore } from '../stores/project';
 import { useConfigStore } from '../stores/config';
@@ -17,6 +17,22 @@ const breadcrumb = computed(() => {
   const workspace = projectStore.nav.workspaces.find((w) => w.id === configStore.workspaceId);
   return `${project?.name ?? '项目'} / ${workspace?.name ?? '未归类'} / ${configStore.current.name}`;
 });
+
+const maximized = ref(false);
+
+async function refreshMaximized() {
+  try {
+    const res = await windowStore.isMaximized();
+    maximized.value = res.maximized;
+  } catch {
+    // 查询失败时保持上次状态
+  }
+}
+
+async function onToggleMaximize() {
+  await windowStore.toggleMaximize();
+  await refreshMaximized();
+}
 
 let mouseDown = false;
 let dragStarted = false;
@@ -47,12 +63,17 @@ function onBarMouseMove(event: MouseEvent) {
 function onBarMouseUp() {
   mouseDown = false;
   dragStarted = false;
+  void refreshMaximized();
 }
 
 function onBarDblClick(event: MouseEvent) {
   if ((event.target as HTMLElement).closest('button')) return;
-  void windowStore.toggleMaximize();
+  void onToggleMaximize();
 }
+
+onMounted(() => {
+  void refreshMaximized();
+});
 </script>
 
 <template>
@@ -74,9 +95,13 @@ function onBarDblClick(event: MouseEvent) {
       <button class="win-btn" title="最小化" @click="windowStore.minimize()">
         <svg viewBox="0 0 12 12"><path d="M1 6h10" stroke="currentColor" stroke-width="1.2" /></svg>
       </button>
-      <button class="win-btn" title="最大化 / 还原" @click="windowStore.toggleMaximize()">
-        <svg viewBox="0 0 12 12">
+      <button class="win-btn" :title="maximized ? '还原' : '最大化'" @click="onToggleMaximize">
+        <svg v-if="!maximized" viewBox="0 0 12 12">
           <rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.2" />
+        </svg>
+        <svg v-else viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.2">
+          <rect x="1.5" y="5.5" width="6.5" height="6.5" />
+          <path d="M4.5 1.5h6v6" />
         </svg>
       </button>
       <button class="win-btn close" title="关闭" @click="windowStore.close()">

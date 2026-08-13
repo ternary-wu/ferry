@@ -182,6 +182,7 @@ public static class Program
                 "trash:delete" => TrashDelete(request!),
                 "window:minimize" => WindowMinimize(windowController),
                 "window:maximize" => WindowMaximize(windowController),
+                "window:isMaximized" => WindowIsMaximized(windowController),
                 "window:drag" => WindowDrag(windowController),
                 "log" => LogJs(request ?? new JsonObject()),
                 _ => null
@@ -1087,6 +1088,9 @@ public static class Program
         controller.ToggleMaximize();
         return Ok();
     }
+
+    private static JsonObject WindowIsMaximized(Window.WindowController controller)
+        => Ok(new JsonObject { ["maximized"] = controller.IsMaximized });
 
     private static JsonObject WindowClose(Window.WindowController controller)
     {

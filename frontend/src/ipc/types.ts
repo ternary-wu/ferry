@@ -281,6 +281,7 @@ export interface ActionMap {
   'trash:delete': { payload: { path: string }; data: Record<string, never> };
   'window:minimize': { payload: Record<string, never>; data: Record<string, never> };
   'window:maximize': { payload: Record<string, never>; data: Record<string, never> };
+  'window:isMaximized': { payload: Record<string, never>; data: { maximized: boolean } };
   'window:close': { payload: Record<string, never>; data: Record<string, never> };
   'window:drag': { payload: Record<string, never>; data: Record<string, never> };
   'settings:get': { payload: Record<string, never>; data: { settings: AppSettings } };

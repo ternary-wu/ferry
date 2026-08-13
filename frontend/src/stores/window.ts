@@ -10,6 +10,10 @@ export const useWindowStore = defineStore('window', () => {
     return getIpc().send('window:maximize', {});
   }
 
+  function isMaximized() {
+    return getIpc().send('window:isMaximized', {});
+  }
+
   /** 后端对 window:close 提前返回不回包，因此 fire-and-forget，避免 10s 超时等待。 */
   function close() {
     return getIpc().send('window:close', {}, { fireAndForget: true });
@@ -20,5 +24,5 @@ export const useWindowStore = defineStore('window', () => {
     return getIpc().send('window:drag', {}, { fireAndForget: true });
   }
 
-  return { minimize, toggleMaximize, close, beginDrag };
+  return { minimize, toggleMaximize, isMaximized, close, beginDrag };
 });
