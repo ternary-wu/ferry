@@ -72,10 +72,7 @@ public static class Program
             HandleMessage(sender, context, windowController, message, selfCheck));
         Log("window-created");
 
-        var useNewUi = Environment.GetEnvironmentVariable("FERRY_UI_OLD") != "1";
-        var htmlPath = Path.Combine(
-            AppContext.BaseDirectory,
-            useNewUi ? Path.Combine("ui", "index.html") : Path.Combine("wwwroot", "index.html"));
+        var htmlPath = Path.Combine(AppContext.BaseDirectory, "ui", "index.html");
         window.Load(htmlPath);
         Log("loaded: " + htmlPath);
 

@@ -61,7 +61,8 @@ export function createWebViewTransport(): IpcTransport {
 export function createIpcClient(
   transport: IpcTransport,
   defaultTimeoutMs = 10000,
-  onLatency?: (ms: number) => void
+  onLatency?: (ms: number) => void,
+  onSpikeRun?: () => void
 ): IpcClient {
   let seq = 0;
   const inflight = new Map<string, Inflight>();
@@ -73,7 +74,11 @@ export function createIpcClient(
     } catch {
       return;
     }
-    if (data.action === 'spike:run' || data.action === 'spike:result') {
+    if (data.action === 'spike:run') {
+      onSpikeRun?.();
+      return;
+    }
+    if (data.action === 'spike:result') {
       return;
     }
     if (!data.requestId) {

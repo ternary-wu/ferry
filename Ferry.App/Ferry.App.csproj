@@ -21,7 +21,6 @@
   <ItemGroup>
     <Content Include="..\Plugins\**\*.yaml" CopyToOutputDirectory="PreserveNewest"
              Link="Plugins\%(RecursiveDir)%(Filename)%(Extension)" />
-    <Content Include="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

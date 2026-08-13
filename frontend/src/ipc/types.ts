@@ -262,6 +262,16 @@ export interface ActionMap {
   'settings:get': { payload: Record<string, never>; data: { settings: AppSettings } };
   'settings:save': { payload: { settings: Partial<AppSettings> }; data: { settings: AppSettings } };
   log: { payload: { text: string }; data: Record<string, never> };
+  'spike:result': {
+    payload: {
+      ok: boolean;
+      failed: boolean;
+      worstMs: number;
+      worstInteractiveMs: number;
+      steps: Array<{ name: string; ms: number; ok: boolean; error: string }>;
+    };
+    data: Record<string, never>;
+  };
 }
 
 export type IpcAction = keyof ActionMap;
