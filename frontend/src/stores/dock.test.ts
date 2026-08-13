@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
-import { DOCK_MAX, DOCK_MIN, useDockStore } from './dock';
+import { DOCK_CLOSE_ARM, DOCK_MAX, DOCK_MIN, useDockStore } from './dock';
 
 describe('dock store', () => {
   beforeEach(() => {
@@ -46,6 +46,9 @@ describe('dock store', () => {
     dock.resizeTo(10);
     expect(dock.width).toBe(DOCK_MIN);
     expect(dock.closeZone).toBe(true);
+    dock.resizeTo(DOCK_CLOSE_ARM + 2);
+    expect(dock.width).toBe(DOCK_MIN);
+    expect(dock.closeZone).toBe(false);
     dock.resizeTo(45);
     expect(dock.width).toBe(45);
     expect(dock.closeZone).toBe(false);
@@ -54,10 +57,21 @@ describe('dock store', () => {
     expect(JSON.parse(localStorage.getItem('ferry.dock.width')!)).toBe(45);
   });
 
-  it('closes when released in close zone and resets width to threshold', () => {
+  it('damping zone keeps open when released between 30% and 35%', () => {
     const dock = useDockStore();
     dock.openDock();
     dock.resizeTo(33);
+    expect(dock.width).toBe(DOCK_MIN);
+    expect(dock.closeZone).toBe(false);
+    dock.finishResize();
+    expect(dock.open).toBe(true);
+    expect(dock.width).toBe(DOCK_MIN);
+  });
+
+  it('closes when released in close zone and resets width to threshold', () => {
+    const dock = useDockStore();
+    dock.openDock();
+    dock.resizeTo(DOCK_CLOSE_ARM - 1);
     expect(dock.width).toBe(DOCK_MIN);
     expect(dock.closeZone).toBe(true);
     expect(dock.open).toBe(true);

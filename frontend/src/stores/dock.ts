@@ -6,6 +6,8 @@ import { loadLocal, saveLocal } from '../utils/storage';
 export const DOCK_MIN = 35;
 /** 拖拽宽度上限（60%）。 */
 export const DOCK_MAX = 60;
+/** 关闭阻尼带：指针须越过该值（30%）才武装关闭；35%–30% 之间为中性区，防止误关。 */
+export const DOCK_CLOSE_ARM = 30;
 /** 默认宽度（42%）。 */
 export const DOCK_DEFAULT_WIDTH = 42;
 
@@ -46,12 +48,12 @@ export const useDockStore = defineStore('dock', () => {
     }
   }
 
-  /** 拖拽中实时更新宽度：视觉上钳制在 35%–60%，指针越过 35% 只标记关闭区。 */
+  /** 拖拽中实时更新宽度：视觉上钳制在 35%–60%；指针越过 30% 才进入关闭区（35%–30% 为阻尼带）。 */
   function resizeTo(percent: number) {
     width.value = Number.isFinite(percent)
       ? Math.min(DOCK_MAX, Math.max(DOCK_MIN, percent))
       : width.value;
-    closeZone.value = Number.isFinite(percent) && percent < DOCK_MIN;
+    closeZone.value = Number.isFinite(percent) && percent < DOCK_CLOSE_ARM;
   }
 
   /** 松开拖拽：处于关闭区则关闭并把宽度重置到阈值；否则保留并持久化。 */
