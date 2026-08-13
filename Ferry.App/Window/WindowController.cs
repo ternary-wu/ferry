@@ -21,6 +21,7 @@ public sealed class WindowController
     private const uint WmNcCalcSize = 0x0083;
     private const uint WmGetMinMaxInfo = 0x0024;
     private const uint WmNcHitTest = 0x0084;
+    private const uint WmNcPaint = 0x0085;
     private const int HtCaption = 0x0002;
     private const int HtClient = 0x0001;
     private const int HtLeft = 10;
@@ -49,6 +50,7 @@ public sealed class WindowController
     private const int DwmcpRound = 2;
     private const int SwMaximize = 3;
     private const int SwRestore = 9;
+    private const int ResizeBorderLogical = 7;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -59,7 +61,6 @@ public sealed class WindowController
     private readonly string _statePath;
     private readonly object _saveLock = new();
     private IntPtr _hwnd = IntPtr.Zero;
-    private double _scale = 1.0;
     private int _minW;
     private int _minH;
     private SUBCLASSPROC? _subclassProc;
@@ -73,6 +74,14 @@ public sealed class WindowController
     }
 
     public bool IsMaximized => _hwnd != IntPtr.Zero && IsZoomed(_hwnd);
+
+    /// <summary>
+    /// 原生 Resize 边框的物理像素宽度：Logical(7) × DPI / 96，只转换一次。
+    /// 该区域保留为顶层窗口的 Non-Client 区，WebView2 客户区不覆盖它，
+    /// 因此系统边缘命中会回到顶层 HWND。
+    /// </summary>
+    private int ResizeBorderPhysical =>
+        Math.Max(4, MulDiv(ResizeBorderLogical, _hwnd != IntPtr.Zero ? GetDpiForWindow(_hwnd) : 96, 96));
 
     /// <summary>注册窗口生命周期事件；须在窗口创建（Load）之前调用。</summary>
     public void Initialize()
@@ -208,8 +217,6 @@ public sealed class WindowController
             return;
         }
 
-        var dpi = GetDpiForWindow(_hwnd);
-        _scale = dpi > 0 ? dpi / 96.0 : GetSystemScaleFactor();
         _minW = MinWidth;
         _minH = MinHeight;
         EnsureWindowStyles(_hwnd);
@@ -285,20 +292,40 @@ public sealed class WindowController
         switch (uMsg)
         {
             case WmNcCalcSize:
-                // 清除全部非客户区：无边框窗口的 DWM 边框会透出桌面（白边），
-                // 令整个窗口矩形都作为客户区，WebView 从最顶端渲染。
-                // 最大化时把客户区钳到当前显示器工作区，避免原生最大化边框扩张盖住任务栏。
-                if (wParam != IntPtr.Zero && IsZoomed(hWnd))
+                if (wParam != IntPtr.Zero)
                 {
-                    var monitor = MonitorFromWindow(hWnd, MonitorDefaultToNearest);
-                    var info = new MONITORINFO { cbSize = (uint)Marshal.SizeOf<MONITORINFO>() };
-                    if (GetMonitorInfo(monitor, ref info))
+                    var nc = Marshal.PtrToStructure<NCCALCSIZE_PARAMS>(lParam);
+                    if (IsZoomed(hWnd))
                     {
-                        var nc = Marshal.PtrToStructure<NCCALCSIZE_PARAMS>(lParam);
-                        nc.Rgrc0 = info.rcWork;
-                        Marshal.StructureToPtr(nc, lParam, false);
+                        // 最大化：客户区钳到当前显示器工作区，任务栏保持可见
+                        var monitor = MonitorFromWindow(hWnd, MonitorDefaultToNearest);
+                        var info = new MONITORINFO { cbSize = (uint)Marshal.SizeOf<MONITORINFO>() };
+                        if (GetMonitorInfo(monitor, ref info))
+                        {
+                            nc.Rgrc0 = info.rcWork;
+                        }
                     }
+                    else
+                    {
+                        // Normal：保留 ResizeBorderPhysical 的原生 Non-Client 区，
+                        // 客户区按该值内缩，WebView2 只覆盖客户区。
+                        var win = nc.Rgrc0;
+                        var b = ResizeBorderPhysical;
+                        nc.Rgrc0 = new RECT
+                        {
+                            Left = win.Left + b,
+                            Top = win.Top + b,
+                            Right = win.Right - b,
+                            Bottom = win.Bottom - b
+                        };
+                    }
+                    Marshal.StructureToPtr(nc, lParam, false);
                 }
+                return IntPtr.Zero;
+            case WmNcPaint:
+                // 把原生 Non-Client Resize 边框涂成主题 Surface 色，
+                // 视觉保持无边框，同时避免 DWM 透明边框透出桌面（白边）。
+                PaintNonClientFrame(hWnd);
                 return IntPtr.Zero;
             case WmGetMinMaxInfo:
                 var mmi = Marshal.PtrToStructure<MINMAXINFO>(lParam);
@@ -321,6 +348,54 @@ public sealed class WindowController
         return DefSubclassProc(hWnd, uMsg, wParam, lParam);
     }
 
+    private void PaintNonClientFrame(IntPtr hwnd)
+    {
+        try
+        {
+            GetWindowRect(hwnd, out var wr);
+            var dc = GetWindowDC(hwnd);
+            if (dc == IntPtr.Zero)
+            {
+                return;
+            }
+            try
+            {
+                // 0x00171717 = #171717（--ferry-surface）的 GDI BGR
+                var brush = CreateSolidBrush(0x00171717);
+                if (brush == IntPtr.Zero)
+                {
+                    return;
+                }
+                try
+                {
+                    var b = ResizeBorderPhysical;
+                    var w = wr.Right - wr.Left;
+                    var h = wr.Bottom - wr.Top;
+                    var top = new RECT { Left = 0, Top = 0, Right = w, Bottom = b };
+                    var bottom = new RECT { Left = 0, Top = h - b, Right = w, Bottom = h };
+                    var left = new RECT { Left = 0, Top = b, Right = b, Bottom = h - b };
+                    var right = new RECT { Left = w - b, Top = b, Right = w, Bottom = h - b };
+                    FillRect(dc, ref top, brush);
+                    FillRect(dc, ref bottom, brush);
+                    FillRect(dc, ref left, brush);
+                    FillRect(dc, ref right, brush);
+                }
+                finally
+                {
+                    DeleteObject(brush);
+                }
+            }
+            finally
+            {
+                ReleaseDC(hwnd, dc);
+            }
+        }
+        catch
+        {
+            // 绘制失败不影响窗口
+        }
+    }
+
     private int HitTestNc(IntPtr lParam)
     {
         var x = (short)((long)lParam & 0xFFFF);
@@ -329,7 +404,7 @@ public sealed class WindowController
         {
             return HtClient;
         }
-        var border = Math.Max(4, (int)Math.Round(6 * _scale));
+        var border = ResizeBorderPhysical;
         var left = x >= rect.Left && x < rect.Left + border;
         var right = x > rect.Right - border && x <= rect.Right;
         var top = y >= rect.Top && y < rect.Top + border;
@@ -606,6 +681,24 @@ public sealed class WindowController
 
     [DllImport("user32.dll")]
     private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [DllImport("kernel32.dll")]
+    private static extern int MulDiv(int nNumber, int nNumerator, int nDenominator);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetWindowDC(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
+
+    [DllImport("gdi32.dll")]
+    private static extern IntPtr CreateSolidBrush(uint crColor);
+
+    [DllImport("gdi32.dll")]
+    private static extern bool DeleteObject(IntPtr hObject);
+
+    [DllImport("user32.dll")]
+    private static extern bool FillRect(IntPtr hDC, ref RECT lprc, IntPtr hbr);
 
     [DllImport("user32.dll")]
     private static extern IntPtr MonitorFromPoint(POINT pt, uint dwFlags);
