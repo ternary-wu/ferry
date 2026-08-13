@@ -101,6 +101,16 @@ const tooltipDelayEnabled = computed({
   set: (value: boolean) => void settingsStore.save({ tooltipDelayEnabled: value })
 });
 
+const tooltipShowDelay = computed({
+  get: () => settingsStore.settings.tooltipShowDelay ?? 250,
+  set: (value: number) => void settingsStore.save({ tooltipShowDelay: value })
+});
+
+const tooltipShowDelayEnabled = computed({
+  get: () => settingsStore.settings.tooltipShowDelayEnabled === true,
+  set: (value: boolean) => void settingsStore.save({ tooltipShowDelayEnabled: value })
+});
+
 // ---------- 插件管理 ----------
 
 function isPluginEnabled(key: string): boolean {
@@ -261,12 +271,24 @@ onMounted(() => {
         <input v-model="tooltipEnabled" type="checkbox" class="ferry-check" />
       </label>
       <label class="ferry-settings-row">
-        <span class="ferry-settings-label">启用 Tooltip 延迟</span>
-        <input v-model="tooltipDelayEnabled" type="checkbox" class="ferry-check" />
+        <span class="ferry-settings-label">悬停延迟显示（ms）</span>
+        <input v-model="tooltipShowDelayEnabled" type="checkbox" class="ferry-check" />
+        <input
+          v-model.number="tooltipShowDelay"
+          type="number"
+          class="ferry-input ferry-settings-input"
+          :disabled="!tooltipShowDelayEnabled"
+        />
       </label>
       <label class="ferry-settings-row">
-        <span class="ferry-settings-label">Tooltip 延迟（ms）</span>
-        <input v-model.number="tooltipDelay" type="number" class="ferry-input ferry-settings-input" />
+        <span class="ferry-settings-label">移开延迟关闭（ms）</span>
+        <input v-model="tooltipDelayEnabled" type="checkbox" class="ferry-check" />
+        <input
+          v-model.number="tooltipDelay"
+          type="number"
+          class="ferry-input ferry-settings-input"
+          :disabled="!tooltipDelayEnabled"
+        />
       </label>
     </div>
 

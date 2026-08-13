@@ -22,6 +22,7 @@ import {
   applyTheme,
   applyTooltipDelay,
   applyTooltipEnabled,
+  applyTooltipShowDelay,
   onSystemThemeChange
 } from './utils/theme';
 
@@ -38,11 +39,22 @@ watch(
     settingsStore.settings.animations,
     settingsStore.settings.tooltipDelay,
     settingsStore.settings.tooltipDelayEnabled,
-    settingsStore.settings.tooltipEnabled
+    settingsStore.settings.tooltipEnabled,
+    settingsStore.settings.tooltipShowDelay,
+    settingsStore.settings.tooltipShowDelayEnabled
   ] as const,
-  ([theme, animations, tooltipDelay, tooltipDelayEnabled, tooltipEnabled]) => {
+  ([
+    theme,
+    animations,
+    tooltipDelay,
+    tooltipDelayEnabled,
+    tooltipEnabled,
+    tooltipShowDelay,
+    tooltipShowDelayEnabled
+  ]) => {
     applyTheme(theme, animations);
     applyTooltipDelay(tooltipDelay, tooltipDelayEnabled);
+    applyTooltipShowDelay(tooltipShowDelay, tooltipShowDelayEnabled);
     applyTooltipEnabled(tooltipEnabled);
   }
 );
@@ -84,6 +96,10 @@ onMounted(async () => {
     applyTooltipDelay(
       settingsStore.settings.tooltipDelay,
       settingsStore.settings.tooltipDelayEnabled
+    );
+    applyTooltipShowDelay(
+      settingsStore.settings.tooltipShowDelay,
+      settingsStore.settings.tooltipShowDelayEnabled
     );
     applyTooltipEnabled(settingsStore.settings.tooltipEnabled);
     onSystemThemeChange(() => {

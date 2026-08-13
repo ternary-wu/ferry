@@ -1135,8 +1135,8 @@ textarea {
   opacity: 1;
   visibility: visible;
   transition:
-    opacity 0.12s ease 0s,
-    visibility 0s;
+    opacity 0.12s ease var(--ferry-tooltip-show-delay, 0ms),
+    visibility 0s linear var(--ferry-tooltip-show-delay, 0ms);
 }
 
 html[data-tooltip='off'] [data-tip]::after {

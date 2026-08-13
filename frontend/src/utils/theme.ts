@@ -24,6 +24,14 @@ export function applyTooltipDelay(delay?: number, delayEnabled?: boolean): void 
   );
 }
 
+/** 字段说明 tooltip 悬停后的显示延迟（毫秒）；延迟关闭时为 0（立即显示）。 */
+export function applyTooltipShowDelay(delay?: number, delayEnabled?: boolean): void {
+  document.documentElement.style.setProperty(
+    '--ferry-tooltip-show-delay',
+    delayEnabled === true ? `${delay ?? 250}ms` : '0ms'
+  );
+}
+
 /** 悬停显示字段说明的总开关。 */
 export function applyTooltipEnabled(enabled?: boolean): void {
   document.documentElement.dataset.tooltip = enabled === false ? 'off' : 'on';

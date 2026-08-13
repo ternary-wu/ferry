@@ -152,6 +152,8 @@ export interface AppSettings {
   tooltipDelay?: number;
   tooltipDelayEnabled?: boolean;
   tooltipEnabled?: boolean;
+  tooltipShowDelay?: number;
+  tooltipShowDelayEnabled?: boolean;
   trashDays?: number;
   trashSizeMB?: number;
   closeOutside?: boolean;
