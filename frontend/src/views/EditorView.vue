@@ -1,26 +1,17 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue';
+import { computed } from 'vue';
 import FieldNode from '../components/field/FieldNode.vue';
-import { useAppStore } from '../stores/app';
 import { useConfigStore } from '../stores/config';
 import { useDockStore } from '../stores/dock';
 import { loadLocal } from '../utils/storage';
 
 const configStore = useConfigStore();
-const appStore = useAppStore();
 const dock = useDockStore();
 
 const templateName = computed(() =>
   configStore.current ? loadLocal<string>(`ferry.tplCfg.${configStore.current.id}`, '') : ''
 );
 
-watch(
-  () => configStore.errors,
-  (errors) => {
-    appStore.setStatus(errors.length ? `校验：${errors.length} 个错误` : '校验通过', errors.length > 0);
-  },
-  { immediate: true }
-);
 </script>
 
 <template>

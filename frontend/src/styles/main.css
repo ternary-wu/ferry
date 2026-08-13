@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  --ferry-sidebar-inset: 16px;
   --ferry-bg: #212121;
   --ferry-surface: #171717;
   --ferry-card: #2b2b2b;
@@ -96,6 +97,10 @@ textarea {
 }
 
 /* ===== Sidebar ===== */
+.ferry-sidebar {
+  padding: 16px var(--ferry-sidebar-inset);
+}
+
 .ferry-project-menu {
   max-height: 320px;
   overflow-y: auto;
@@ -174,7 +179,7 @@ textarea {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 6px;
+  padding: 8px 10px 8px 0;
   border-radius: 8px;
   color: #ddd;
   user-select: none;
@@ -187,7 +192,6 @@ textarea {
 
 .ferry-config-row {
   margin: 3px 0;
-  padding: 8px 10px;
 }
 
 .ferry-config-row.active {
@@ -207,7 +211,7 @@ textarea {
 .ferry-hint {
   color: var(--ferry-text-muted);
   font-size: 13px;
-  padding: 2px 6px;
+  padding: 2px 0;
 }
 
 .ferry-nav-row {
@@ -693,16 +697,6 @@ textarea {
   padding: 0 10px;
   border-bottom: 1px solid var(--ferry-border-soft);
   flex-shrink: 0;
-}
-
-.ferry-dock-title {
-  font-size: 12px;
-  color: var(--ferry-text-muted);
-}
-
-.ferry-dock-size {
-  font-size: 11px;
-  color: var(--ferry-text-dim);
 }
 
 .ferry-dock-btn {

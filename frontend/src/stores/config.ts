@@ -15,6 +15,7 @@ export const useConfigStore = defineStore('config', () => {
   const versionChanged = ref(false);
   const pluginMissing = ref(false);
   const templates = ref<PluginTemplateDto[]>([]);
+  const saving = ref(false);
   const filter = ref<FieldFilter>('all');
   const search = ref('');
   const collapsed = ref<Record<string, boolean>>({});
@@ -92,51 +93,76 @@ export const useConfigStore = defineStore('config', () => {
   }
 
   async function setValue(path: string, value: unknown) {
-    const res = await getIpc().send('form:setValue', { path, value });
-    if (res.ok) {
-      applyFormResult(res);
+    saving.value = true;
+    try {
+      const res = await getIpc().send('form:setValue', { path, value });
+      if (res.ok) {
+        applyFormResult(res);
+      }
+      return res;
+    } finally {
+      saving.value = false;
     }
-    return res;
   }
 
   async function toggle(path: string, enabled?: boolean) {
-    const res = await getIpc().send('form:toggle', { path, enabled });
-    if (res.ok) {
-      applyFormResult(res);
+    saving.value = true;
+    try {
+      const res = await getIpc().send('form:toggle', { path, enabled });
+      if (res.ok) {
+        applyFormResult(res);
+      }
+      return res;
+    } finally {
+      saving.value = false;
     }
-    return res;
   }
 
   async function addItem(path: string) {
-    const res = await getIpc().send('form:addItem', { path });
-    if (res.ok) {
-      applyFormResult(res);
+    saving.value = true;
+    try {
+      const res = await getIpc().send('form:addItem', { path });
+      if (res.ok) {
+        applyFormResult(res);
+      }
+      return res;
+    } finally {
+      saving.value = false;
     }
-    return res;
   }
 
   async function removeItem(path: string) {
-    const res = await getIpc().send('form:removeItem', { path });
-    if (res.ok) {
-      applyFormResult(res);
+    saving.value = true;
+    try {
+      const res = await getIpc().send('form:removeItem', { path });
+      if (res.ok) {
+        applyFormResult(res);
+      }
+      return res;
+    } finally {
+      saving.value = false;
     }
-    return res;
   }
 
   async function resetCurrent() {
-    const res = await getIpc().send('config:reset', {});
-    if (res.ok) {
-      snapshot.value = res.snapshot;
-      sourceText.value = res.sourceText;
-      errors.value = [];
-      try {
-        const validation = await getIpc().send('form:validate', {});
-        errors.value = validation.errors ?? [];
-      } catch {
-        // 校验失败不影响重置结果
+    saving.value = true;
+    try {
+      const res = await getIpc().send('config:reset', {});
+      if (res.ok) {
+        snapshot.value = res.snapshot;
+        sourceText.value = res.sourceText;
+        errors.value = [];
+        try {
+          const validation = await getIpc().send('form:validate', {});
+          errors.value = validation.errors ?? [];
+        } catch {
+          // 校验失败不影响重置结果
+        }
       }
+      return res;
+    } finally {
+      saving.value = false;
     }
-    return res;
   }
 
   return {
@@ -149,6 +175,7 @@ export const useConfigStore = defineStore('config', () => {
     versionChanged,
     pluginMissing,
     templates,
+    saving,
     filter,
     search,
     collapsed,

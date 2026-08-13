@@ -67,9 +67,6 @@ function onResizePointerUp(event: PointerEvent) {
       @pointerup="onResizePointerUp"
     ></div>
     <header class="ferry-dock-header">
-      <span class="ferry-dock-title">源码</span>
-      <span v-if="!dock.maximized" class="ferry-dock-size">{{ Math.round(dock.width) }}%</span>
-      <span class="flex-1"></span>
       <button
         class="ferry-dock-btn"
         :title="dock.lineNumbers ? '隐藏行号' : '显示行号'"
@@ -78,6 +75,7 @@ function onResizePointerUp(event: PointerEvent) {
       >
         #
       </button>
+      <span class="flex-1"></span>
       <button class="ferry-dock-btn" title="仅占满主工作区" @click="dock.toggleMaximize()">
         {{ dock.maximized ? '还原' : '全占' }}
       </button>

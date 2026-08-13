@@ -516,7 +516,7 @@ function configRowClass(config: ConfigInfo, workspaceId: string) {
 </script>
 
 <template>
-  <aside class="ferry-sidebar flex w-[270px] shrink-0 flex-col overflow-y-auto border-r border-[var(--ferry-border-soft)] bg-[var(--ferry-surface)] p-4">
+  <aside class="ferry-sidebar flex w-[270px] shrink-0 flex-col overflow-y-auto border-r border-[var(--ferry-border-soft)] bg-[var(--ferry-surface)]">
     <div class="mb-4 text-xl font-semibold">Ferry</div>
 
     <template v-if="!isSettings">
