@@ -136,16 +136,18 @@ function joinPath(dir: string, name: string): string {
 }
 
 async function exportConfig(config: ConfigInfo, workspaceId: string) {
-  const defaultName = joinPath(settingsStore.settings.defaultPath ?? '', config.name + '.ferry');
+  const defaultName = joinPath(settingsStore.settings.defaultPath ?? '', config.name);
   const picked = await getIpc().send('file:saveDialog', {
-    title: '导出配置存档',
-    defaultName
+    title: '导出配置',
+    defaultName,
+    filterName: '所有文件',
+    patterns: ['*.*']
   });
   if (!picked.path) {
     return;
   }
   try {
-    const res = await getIpc().send('archive:exportConfig', {
+    const res = await getIpc().send('config:exportFile', {
       workspaceId,
       configId: config.id,
       path: picked.path
@@ -226,7 +228,10 @@ async function exportWorkspace(workspace: NavWorkspace) {
   const defaultName = joinPath(settingsStore.settings.defaultPath ?? '', workspace.name + '.ferry');
   const picked = await getIpc().send('file:saveDialog', {
     title: '导出工作空间存档',
-    defaultName
+    defaultName,
+    filterName: 'Ferry 存档',
+    patterns: ['*.ferry'],
+    defaultExt: 'ferry'
   });
   if (!picked.path) {
     return;

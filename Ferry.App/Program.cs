@@ -143,6 +143,7 @@ public static class Program
                 "config:create" => ConfigCreate(ctx, request!),
                 "config:duplicate" => ConfigDuplicate(ctx, request!),
                 "config:rename" => ConfigRename(ctx, request!),
+                "config:exportFile" => ConfigExportFile(ctx, request!),
                 "config:open" => ConfigOpen(ctx, request!),
                 "config:delete" => ConfigDelete(ctx, request!),
                 "config:move" => ConfigMove(ctx, request!),
@@ -469,6 +470,12 @@ public static class Program
     {
         var title = request["title"]?.GetValue<string>() ?? "保存文件";
         var defaultName = request["defaultName"]?.GetValue<string>() ?? string.Empty;
+        var defaultExt = request["defaultExt"]?.GetValue<string>();
+        var filterName = request["filterName"]?.GetValue<string>() ?? "文件";
+        var patterns = request["patterns"] is JsonArray array
+            ? array.Select(n => n?.GetValue<string>() ?? "*.*").ToArray()
+            : new[] { "*.ferry" };
+        var filter = filterName + "\0" + string.Join("\0", patterns) + "\0\0";
         var initialDir = request["initialDir"]?.GetValue<string>();
         try
         {
@@ -489,8 +496,8 @@ public static class Program
             path = ShowNativeDialog(
                 window.WindowHandle,
                 title,
-                "Ferry 存档\0*.ferry\0\0",
-                defaultExt: "ferry",
+                filter,
+                defaultExt,
                 initialDir,
                 defaultName,
                 forSave: true);
@@ -508,6 +515,20 @@ public static class Program
         {
             ["path"] = string.IsNullOrEmpty(path) ? null : path
         });
+    }
+
+    /// <summary>把配置源码导出为配置文件本身（保留配置自己的扩展名，不打包）。</summary>
+    private static JsonObject ConfigExportFile(HostContext ctx, JsonObject request)
+    {
+        var workspaceId = request["workspaceId"]!.GetValue<string>();
+        var configId = request["configId"]!.GetValue<string>();
+        var path = request["path"]!.GetValue<string>();
+        var config = ctx.Workspaces.LoadConfig(workspaceId, configId)
+            ?? throw new InvalidOperationException("配置不存在");
+        var text = ConfigReverseParser.AppendUnrecognized(config.SourceText, config.Unrecognized);
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
+        File.WriteAllText(path, text);
+        return Ok(new JsonObject { ["path"] = path });
     }
 
     /// <summary>Win32 原生文件对话框（comdlg32），不依赖 Photino 的对话框实现。</summary>
