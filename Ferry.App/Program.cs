@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -439,16 +440,19 @@ public static class Program
     private static JsonObject FileOpenDialog(PhotinoWindow window, JsonObject request)
     {
         var title = request["title"]?.GetValue<string>() ?? "选择 Ferry 存档";
-        var filters = new (string, string[])[]
-        {
-            ("Ferry 存档", new[] { "*.ferry" }),
-            ("所有文件", new[] { "*.*" })
-        };
         string? path = null;
         void Show()
         {
-            var paths = window.ShowOpenFile(string.Empty, title, false, filters);
-            path = paths is { Length: > 0 } ? paths[0] : null;
+            Log($"file-open-dialog thread={Environment.CurrentManagedThreadId} main={s_mainThreadId}");
+            path = ShowNativeDialog(
+                window.WindowHandle,
+                title,
+                "Ferry 存档\0*.ferry\0所有文件\0*.*\0\0",
+                defaultExt: null,
+                initialDir: null,
+                defaultName: string.Empty,
+                forSave: false);
+            Log($"file-open-dialog result={(path is null ? "(cancel)" : path)}");
         }
         if (Environment.CurrentManagedThreadId == s_mainThreadId)
         {
@@ -465,14 +469,32 @@ public static class Program
     {
         var title = request["title"]?.GetValue<string>() ?? "保存文件";
         var defaultName = request["defaultName"]?.GetValue<string>() ?? string.Empty;
-        var filters = new (string, string[])[]
+        var initialDir = request["initialDir"]?.GetValue<string>();
+        try
         {
-            ("Ferry 存档", new[] { "*.ferry" })
-        };
+            if (string.IsNullOrEmpty(initialDir))
+            {
+                initialDir = Path.GetDirectoryName(defaultName);
+            }
+            defaultName = Path.GetFileName(defaultName);
+        }
+        catch
+        {
+            // 默认名不含路径时忽略
+        }
         string? path = null;
         void Show()
         {
-            path = window.ShowSaveFile(defaultName, title, filters);
+            Log($"file-save-dialog thread={Environment.CurrentManagedThreadId} main={s_mainThreadId}");
+            path = ShowNativeDialog(
+                window.WindowHandle,
+                title,
+                "Ferry 存档\0*.ferry\0\0",
+                defaultExt: "ferry",
+                initialDir,
+                defaultName,
+                forSave: true);
+            Log($"file-save-dialog result={(path is null ? "(cancel)" : path)}");
         }
         if (Environment.CurrentManagedThreadId == s_mainThreadId)
         {
@@ -487,6 +509,88 @@ public static class Program
             ["path"] = string.IsNullOrEmpty(path) ? null : path
         });
     }
+
+    /// <summary>Win32 原生文件对话框（comdlg32），不依赖 Photino 的对话框实现。</summary>
+    private static string? ShowNativeDialog(
+        IntPtr owner,
+        string title,
+        string filter,
+        string? defaultExt,
+        string? initialDir,
+        string defaultName,
+        bool forSave)
+    {
+        var filterPtr = Marshal.StringToHGlobalUni(filter);
+        var filePtr = Marshal.AllocHGlobal(2048 * sizeof(char));
+        try
+        {
+            var initial = (defaultName + '\0').ToCharArray();
+            Marshal.Copy(initial, 0, filePtr, initial.Length);
+            var ofn = new OPENFILENAME
+            {
+                lStructSize = Marshal.SizeOf<OPENFILENAME>(),
+                hwndOwner = owner,
+                lpstrFilter = filterPtr,
+                nFilterIndex = 1,
+                lpstrFile = filePtr,
+                nMaxFile = 2048,
+                lpstrInitialDir = string.IsNullOrEmpty(initialDir) ? null : initialDir,
+                lpstrTitle = title,
+                lpstrDefExt = string.IsNullOrEmpty(defaultExt) ? null : defaultExt,
+                // OVERWRITEPROMPT/PATHMUSTEXIST 或 FILEMUSTEXIST/PATHMUSTEXIST + NOCHANGEDIR + EXPLORER
+                Flags = (forSave ? 0x0002 | 0x0800 : 0x00001000 | 0x00000800)
+                        | 0x0008
+                        | 0x00080000
+            };
+            var ok = forSave
+                ? GetSaveFileName(ref ofn)
+                : GetOpenFileName(ref ofn);
+            return ok ? Marshal.PtrToStringUni(filePtr) : null;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(filterPtr);
+            Marshal.FreeHGlobal(filePtr);
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct OPENFILENAME
+    {
+        public int lStructSize;
+        public IntPtr hwndOwner;
+        public IntPtr hInstance;
+        public IntPtr lpstrFilter;
+        public IntPtr lpstrCustomFilter;
+        public int nMaxCustFilter;
+        public int nFilterIndex;
+        public IntPtr lpstrFile;
+        public int nMaxFile;
+        public IntPtr lpstrFileTitle;
+        public int nMaxFileTitle;
+        [MarshalAs(UnmanagedType.LPWStr)]
+        public string? lpstrInitialDir;
+        [MarshalAs(UnmanagedType.LPWStr)]
+        public string? lpstrTitle;
+        public int Flags;
+        public short nFileOffset;
+        public short nFileExtension;
+        [MarshalAs(UnmanagedType.LPWStr)]
+        public string? lpstrDefExt;
+        public IntPtr lCustData;
+        public IntPtr lpfnHook;
+        [MarshalAs(UnmanagedType.LPWStr)]
+        public string? lpTemplateName;
+        public IntPtr pvReserved;
+        public int dwReserved;
+        public int flagsEx;
+    }
+
+    [DllImport("comdlg32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool GetOpenFileName(ref OPENFILENAME lpofn);
+
+    [DllImport("comdlg32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool GetSaveFileName(ref OPENFILENAME lpofn);
 
     private static JsonObject ConfigMove(HostContext ctx, JsonObject request)
     {
