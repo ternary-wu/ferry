@@ -171,6 +171,7 @@ public static class Program
                 "version:delete" => VersionDelete(ctx, request!),
                 "archive:exportWorkspace" => ArchiveExportWorkspace(ctx, request!),
                 "archive:exportConfig" => ArchiveExportConfig(ctx, request!),
+                "archive:exportProject" => ArchiveExportProject(ctx, request!),
                 "archive:import" => ArchiveImport(ctx, request!),
                 "file:openDialog" => FileOpenDialog(window, request!),
                 "file:saveDialog" => FileSaveDialog(window, request!),
@@ -897,6 +898,13 @@ public static class Program
             request["workspaceId"]!.GetValue<string>(),
             request["configId"]!.GetValue<string>(),
             path);
+        return Ok(new JsonObject { ["path"] = path });
+    }
+
+    private static JsonObject ArchiveExportProject(HostContext ctx, JsonObject request)
+    {
+        var path = ResolveExportPath(request);
+        ctx.Archive.ExportProject(request["projectId"]!.GetValue<string>(), path);
         return Ok(new JsonObject { ["path"] = path });
     }
 

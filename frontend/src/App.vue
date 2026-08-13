@@ -9,6 +9,7 @@ import WizardModal from './components/WizardModal.vue';
 import MoveModal from './components/MoveModal.vue';
 import HistoryModal from './components/HistoryModal.vue';
 import RenameModal from './components/RenameModal.vue';
+import ExportProjectModal from './components/ExportProjectModal.vue';
 import SourceDock from './components/SourceDock.vue';
 import ToastHost from './components/ToastHost.vue';
 import { useAppStore } from './stores/app';
@@ -138,6 +139,7 @@ onMounted(async () => {
     <MoveModal />
     <HistoryModal />
     <RenameModal />
+    <ExportProjectModal />
     <WizardModal />
     <ToastHost />
   </div>

@@ -258,6 +258,7 @@ export interface ActionMap {
     payload: { workspaceId: string; configId: string; path: string };
     data: { path: string };
   };
+  'archive:exportProject': { payload: { projectId: string; path: string }; data: { path: string } };
   'archive:import': { payload: { path: string }; data: ArchiveImportResult };
   'file:openDialog': {
     payload: { title?: string; patterns?: string[] };

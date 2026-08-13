@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useProjectStore } from '../stores/project';
 import { useConfigStore } from '../stores/config';
@@ -23,6 +23,7 @@ const notifications = useNotificationStore();
 const wizardStore = useWizardStore();
 
 const projectMenuOpen = ref(false);
+const projectMenuRef = ref<HTMLElement | null>(null);
 const wsCollapsed = ref(false);
 const cfgCollapsed = ref(false);
 const wsOpen = ref<Record<string, boolean>>({});
@@ -54,6 +55,28 @@ const categories = [
 
 function isWsOpen(id: string): boolean {
   return wsOpen.value[id] !== false;
+}
+
+function onDocMouseDown(event: MouseEvent) {
+  if (!projectMenuOpen.value) {
+    return;
+  }
+  if (projectMenuRef.value && !projectMenuRef.value.contains(event.target as Node)) {
+    projectMenuOpen.value = false;
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('mousedown', onDocMouseDown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('mousedown', onDocMouseDown);
+});
+
+function openExportProject() {
+  projectMenuOpen.value = false;
+  ui.openExportProject();
 }
 
 function toggleWsOpen(id: string) {
@@ -624,7 +647,7 @@ function configRowClass(config: ConfigInfo, workspaceId: string) {
     <div class="ferry-sidebar-header">
       <div class="mb-4 pl-1 text-xl font-semibold">Ferry</div>
       <template v-if="!isSettings">
-        <div class="relative">
+      <div ref="projectMenuRef" class="relative">
           <button
             class="ferry-project-btn flex w-full items-center gap-2 rounded-xl border text-sm"
             :class="{ open: projectMenuOpen }"
@@ -647,9 +670,10 @@ function configRowClass(config: ConfigInfo, workspaceId: string) {
             >
               <span class="flex-1 truncate">{{ p.name }}</span>
               <span v-if="p.id === projectStore.currentProjectId" class="text-[var(--ferry-primary)]">✓</span>
-            </div>
-            <div class="ferry-menu-sep"></div>
-            <div class="ferry-menu-row" @click="createProject">＋ 新建项目</div>
+          </div>
+          <div class="ferry-menu-sep"></div>
+          <div class="ferry-menu-row" @click="openExportProject">导出项目…</div>
+          <div class="ferry-menu-row" @click="createProject">＋ 新建项目</div>
             <div class="ferry-menu-row" @click="renameProject">重命名</div>
             <div class="ferry-menu-row danger" @click="deleteProject">删除项目</div>
           </div>

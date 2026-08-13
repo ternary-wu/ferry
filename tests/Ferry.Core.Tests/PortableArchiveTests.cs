@@ -169,6 +169,36 @@ public class PortableArchiveTests : IDisposable
     }
 
     [Fact]
+    public void ExportProject_ThenImport_RestoresWorkspacesAndUnassigned()
+    {
+        var nginx = LoadNginx();
+        var service = new WorkspaceService(new LocalWorkspaceStore(Path.Combine(_dir, "source.json")));
+        var project = service.CreateProject("项目A");
+        var ws1 = service.CreateWorkspace(project.Id, "生产环境");
+        var ws2 = service.CreateWorkspace(project.Id, "测试环境");
+        service.CreateConfig(project.Id, ws1.Id, nginx, name: "a.conf", sourceText: "A");
+        service.CreateConfig(project.Id, ws2.Id, nginx, name: "b.conf", sourceText: "B");
+        service.CreateConfig(project.Id, string.Empty, nginx, name: "u.conf", sourceText: "U");
+        var zipPath = Path.Combine(_dir, "project.ferry");
+        new PortableArchiveService(service, new List<PluginDescriptor> { nginx })
+            .ExportProject(project.Id, zipPath);
+
+        var targetService = new WorkspaceService(new LocalWorkspaceStore(Path.Combine(_dir, "target.json")));
+        var result = new PortableArchiveService(targetService, new List<PluginDescriptor> { nginx })
+            .Import(zipPath);
+
+        Assert.Equal(3, result.ImportedConfigs);
+        var importedProject = Assert.Single(targetService.ListProjects());
+        Assert.Equal("项目A", importedProject.Name);
+        var workspaceNames = targetService.ListWorkspaces(importedProject.Id)
+            .Select(w => w.Name)
+            .OrderBy(n => n)
+            .ToArray();
+        Assert.Equal(new[] { "测试环境", "生产环境" }, workspaceNames);
+        Assert.Single(targetService.ListUnassignedConfigs(importedProject.Id));
+    }
+
+    [Fact]
     public void ExportWorkspace_ThenImport_PreservesConfigOrder()
     {
         var nginx = LoadNginx();

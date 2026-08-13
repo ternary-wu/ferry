@@ -39,6 +39,7 @@ export const useUiStore = defineStore('ui', () => {
   const historyTarget = ref<ConfigTarget | null>(null);
   const renameOpen = ref(false);
   const renameTarget = ref<ConfigTarget | null>(null);
+  const exportProjectOpen = ref(false);
 
   function openMenu(items: ContextMenuItem[], x: number, y: number) {
     menuItems.value = items;
@@ -114,6 +115,14 @@ export const useUiStore = defineStore('ui', () => {
     renameTarget.value = null;
   }
 
+  function openExportProject() {
+    exportProjectOpen.value = true;
+  }
+
+  function closeExportProject() {
+    exportProjectOpen.value = false;
+  }
+
   return {
     menuOpen,
     menuItems,
@@ -144,6 +153,9 @@ export const useUiStore = defineStore('ui', () => {
     renameOpen,
     renameTarget,
     openRename,
-    closeRename
+    closeRename,
+    exportProjectOpen,
+    openExportProject,
+    closeExportProject
   };
 });
