@@ -47,6 +47,8 @@ public sealed class WindowController
     private const int DwmwaWindowCornerPreference = 33;
     private const int DwmcpDoNotRound = 1;
     private const int DwmcpRound = 2;
+    private const int SwMaximize = 3;
+    private const int SwRestore = 9;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -60,9 +62,6 @@ public sealed class WindowController
     private double _scale = 1.0;
     private int _minW;
     private int _minH;
-    private bool _maximized;
-    private RECT _normalRect;
-    private bool _hasNormalRect;
     private SUBCLASSPROC? _subclassProc;
     private Timer? _saveTimer;
 
@@ -73,7 +72,7 @@ public sealed class WindowController
         _statePath = Path.Combine(appData, "Ferry", "window.json");
     }
 
-    public bool IsMaximized => _maximized;
+    public bool IsMaximized => _hwnd != IntPtr.Zero && IsZoomed(_hwnd);
 
     /// <summary>注册窗口生命周期事件；须在窗口创建（Load）之前调用。</summary>
     public void Initialize()
@@ -83,13 +82,11 @@ public sealed class WindowController
         _window.RegisterSizeChangedHandler((_, _) => ScheduleSave());
         _window.RegisterMaximizedHandler((_, _) =>
         {
-            _maximized = true;
             ApplyCornerPreference();
             ScheduleSave();
         });
         _window.RegisterRestoredHandler((_, _) =>
         {
-            _maximized = false;
             ApplyCornerPreference();
             ScheduleSave();
         });
@@ -100,19 +97,19 @@ public sealed class WindowController
     public void Minimize() => _window.SetMinimized(true);
 
     /// <summary>
-    /// 工作区最大化（不覆盖任务栏）：最大化 = 填充当前显示器工作区，
-    /// 还原 = 恢复最大化前的位置与尺寸；与 Dock「全占」严格区分。
+    /// 原生窗口状态切换：ShowWindow(SW_MAXIMIZE / SW_RESTORE)，
+    /// 由 Windows 维护 Normal Rect 与最大化生命周期，不自行模拟。
     /// </summary>
     public void ToggleMaximize()
     {
-        if (_maximized)
+        var hwnd = GetNativeHandle();
+        if (hwnd == IntPtr.Zero)
         {
-            RestoreFromMaximize();
+            return;
         }
-        else
-        {
-            MaximizeToWorkArea();
-        }
+        ShowWindow(hwnd, IsZoomed(hwnd) ? SwRestore : SwMaximize);
+        ApplyCornerPreference();
+        ScheduleSave();
     }
 
     public void Close() => _window.Close();
@@ -132,60 +129,6 @@ public sealed class WindowController
             var lParam = new IntPtr(((pt.Y & 0xFFFF) << 16) | (pt.X & 0xFFFF));
             SendMessage(hwnd, WmNcLButtonDown, new IntPtr(HtCaption), lParam);
         }
-    }
-
-    private void MaximizeToWorkArea()
-    {
-        var hwnd = GetNativeHandle();
-        if (hwnd == IntPtr.Zero)
-        {
-            return;
-        }
-        if (GetWindowRect(hwnd, out var rect))
-        {
-            _normalRect = rect;
-            _hasNormalRect = true;
-        }
-        var monitor = MonitorFromWindow(hwnd, MonitorDefaultToNearest);
-        var info = new MONITORINFO { cbSize = (uint)Marshal.SizeOf<MONITORINFO>() };
-        if (!GetMonitorInfo(monitor, ref info))
-        {
-            return;
-        }
-        _maximized = true;
-        SetWindowPos(
-            hwnd,
-            IntPtr.Zero,
-            info.rcWork.Left,
-            info.rcWork.Top,
-            info.rcWork.Right - info.rcWork.Left,
-            info.rcWork.Bottom - info.rcWork.Top,
-            SwpNoZOrder | SwpNoActivate);
-        ApplyCornerPreference();
-        ScheduleSave();
-    }
-
-    private void RestoreFromMaximize()
-    {
-        var hwnd = GetNativeHandle();
-        if (hwnd == IntPtr.Zero)
-        {
-            return;
-        }
-        _maximized = false;
-        if (_hasNormalRect)
-        {
-            SetWindowPos(
-                hwnd,
-                IntPtr.Zero,
-                _normalRect.Left,
-                _normalRect.Top,
-                _normalRect.Right - _normalRect.Left,
-                _normalRect.Bottom - _normalRect.Top,
-                SwpNoZOrder | SwpNoActivate);
-        }
-        ApplyCornerPreference();
-        ScheduleSave();
     }
 
     /// <summary>
@@ -269,8 +212,6 @@ public sealed class WindowController
         _scale = dpi > 0 ? dpi / 96.0 : GetSystemScaleFactor();
         _minW = MinWidth;
         _minH = MinHeight;
-        _maximized = _window.Maximized;
-
         EnsureWindowStyles(_hwnd);
         RemoveFrameBorder(_hwnd);
         _subclassProc = SubclassProc;
@@ -287,7 +228,7 @@ public sealed class WindowController
     {
         try
         {
-            var preference = _maximized ? DwmcpDoNotRound : DwmcpRound;
+            var preference = IsMaximized ? DwmcpDoNotRound : DwmcpRound;
             DwmSetWindowAttribute(
                 _hwnd,
                 DwmwaWindowCornerPreference,
@@ -346,6 +287,18 @@ public sealed class WindowController
             case WmNcCalcSize:
                 // 清除全部非客户区：无边框窗口的 DWM 边框会透出桌面（白边），
                 // 令整个窗口矩形都作为客户区，WebView 从最顶端渲染。
+                // 最大化时把客户区钳到当前显示器工作区，避免原生最大化边框扩张盖住任务栏。
+                if (wParam != IntPtr.Zero && IsZoomed(hWnd))
+                {
+                    var monitor = MonitorFromWindow(hWnd, MonitorDefaultToNearest);
+                    var info = new MONITORINFO { cbSize = (uint)Marshal.SizeOf<MONITORINFO>() };
+                    if (GetMonitorInfo(monitor, ref info))
+                    {
+                        var nc = Marshal.PtrToStructure<NCCALCSIZE_PARAMS>(lParam);
+                        nc.Rgrc0 = info.rcWork;
+                        Marshal.StructureToPtr(nc, lParam, false);
+                    }
+                }
                 return IntPtr.Zero;
             case WmGetMinMaxInfo:
                 var mmi = Marshal.PtrToStructure<MINMAXINFO>(lParam);
@@ -354,7 +307,7 @@ public sealed class WindowController
                 Marshal.StructureToPtr(mmi, lParam, false);
                 return IntPtr.Zero;
             case WmNcHitTest:
-                if (_maximized)
+                if (IsZoomed(hWnd))
                 {
                     return new IntPtr(HtClient);
                 }
@@ -448,7 +401,7 @@ public sealed class WindowController
             _window.SetLocation(new Point(left, top));
             if (state.Maximized)
             {
-                MaximizeToWorkArea();
+                ShowWindow(_hwnd, SwMaximize);
             }
             return;
         }
@@ -515,7 +468,10 @@ public sealed class WindowController
     {
         try
         {
-            var state = new WindowState { Maximized = _maximized || _window.Maximized };
+            var state = new WindowState
+            {
+                Maximized = _hwnd != IntPtr.Zero && IsZoomed(_hwnd)
+            };
             var placementOk = false;
             if (_hwnd != IntPtr.Zero)
             {
@@ -597,6 +553,15 @@ public sealed class WindowController
         public RECT rcNormalPosition;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NCCALCSIZE_PARAMS
+    {
+        public RECT Rgrc0;
+        public RECT Rgrc1;
+        public RECT Rgrc2;
+        public IntPtr Lppos;
+    }
+
     private sealed class WindowState
     {
         public int Left { get; set; }
@@ -668,6 +633,12 @@ public sealed class WindowController
 
     [DllImport("user32.dll")]
     private static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
+
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsZoomed(IntPtr hWnd);
 
     [DllImport("user32.dll")]
     private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
