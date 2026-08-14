@@ -5,7 +5,7 @@ import { useAppStore } from '../stores/app';
 import { useSettingsStore } from '../stores/settings';
 import { useProjectStore } from '../stores/project';
 import { getIpc } from '../ipc';
-import type { TrashItem } from '../ipc/types';
+import type { HostEntry, HostGroup, TrashItem } from '../ipc/types';
 
 const ui = useUiStore();
 const appStore = useAppStore();
@@ -26,6 +26,9 @@ const title = computed(() => titles[ui.settingsCategory] ?? '设置');
 const trashItems = ref<TrashItem[]>([]);
 const trashLoading = ref(false);
 const logPath = ref('');
+const hostGroupFilter = ref('');
+const importGroupId = ref('default');
+const exportFormat = ref<'txt' | 'yaml'>('txt');
 
 // ---------- 常规 ----------
 
@@ -228,6 +231,144 @@ async function deletePushTarget(index: number) {
   await settingsStore.save({ pushTargets: targets });
 }
 
+const hostGroups = computed<HostGroup[]>(() => {
+  const list = settingsStore.settings.hostGroups ?? [];
+  return list.length === 0 ? [{ id: 'default', name: '默认分组' }] : list;
+});
+
+const filteredHosts = computed(() => {
+  const hosts = settingsStore.settings.hostInventory ?? [];
+  if (!hostGroupFilter.value) {
+    return hosts;
+  }
+  return hosts.filter((h) => h.groupId === hostGroupFilter.value);
+});
+
+function saveHostGroups(next: HostGroup[]) {
+  void settingsStore.save({ hostGroups: next });
+}
+
+function saveHosts(next: HostEntry[]) {
+  void settingsStore.save({ hostInventory: next });
+}
+
+async function createHostGroup() {
+  const name = await ui.prompt({ title: '分组名称', placeholder: '输入分组名称' });
+  if (!name) {
+    return;
+  }
+  saveHostGroups([
+    ...hostGroups.value,
+    { id: Date.now() + '' + Math.round(Math.random() * 1e6), name }
+  ]);
+}
+
+async function renameHostGroup(group: HostGroup) {
+  const name = await ui.prompt({ title: '分组名称', defaultValue: group.name });
+  if (!name || name === group.name) {
+    return;
+  }
+  saveHostGroups(hostGroups.value.map((g) => (g.id === group.id ? { ...g, name } : g)));
+}
+
+async function deleteHostGroup(group: HostGroup) {
+  if (group.id === 'default') {
+    appStore.setStatus('默认分组不可删除', true);
+    return;
+  }
+  const ok = await ui.confirm({
+    title: '删除分组',
+    message: `确定删除「${group.name}」？其主机将移到默认分组。`
+  });
+  if (!ok) {
+    return;
+  }
+  saveHostGroups(hostGroups.value.filter((g) => g.id !== group.id));
+  const hosts = settingsStore.settings.hostInventory ?? [];
+  saveHosts(hosts.map((h) => (h.groupId === group.id ? { ...h, groupId: 'default' } : h)));
+  if (hostGroupFilter.value === group.id) {
+    hostGroupFilter.value = '';
+  }
+}
+
+async function importHosts() {
+  const picked = await getIpc().send('file:openDialog', {
+    title: '选择主机清单',
+    filterName: '主机清单',
+    patterns: ['*.txt', '*.yaml', '*.yml']
+  });
+  if (!picked.path) {
+    return;
+  }
+  try {
+    const res = await getIpc().send('hosts:import', {
+      path: picked.path,
+      groupId: importGroupId.value || 'default'
+    });
+    await settingsStore.load();
+    appStore.setStatus(`导入完成：${res.imported} 台主机，跳过 ${res.skipped} 条`);
+  } catch (error) {
+    appStore.setStatus((error as Error).message, true);
+  }
+}
+
+async function exportHosts() {
+  const ext = exportFormat.value;
+  const defaultName = ext === 'yaml' ? 'hosts.yaml' : 'hosts.txt';
+  const picked = await getIpc().send('file:saveDialog', {
+    title: '导出主机清单',
+    defaultName,
+    filterName: ext === 'yaml' ? 'YAML 文件' : '文本文件',
+    patterns: [ext === 'yaml' ? '*.yaml' : '*.txt'],
+    defaultExt: ext
+  });
+  if (!picked.path) {
+    return;
+  }
+  try {
+    const res = await getIpc().send('hosts:export', {
+      path: picked.path,
+      format: exportFormat.value,
+      groupId: hostGroupFilter.value || undefined
+    });
+    appStore.setStatus(`已导出：${res.path}`);
+  } catch (error) {
+    appStore.setStatus((error as Error).message, true);
+  }
+}
+
+async function addHost() {
+  const ip = await ui.prompt({ title: '主机 IP', placeholder: '例如 192.168.1.10' });
+  if (!ip) {
+    return;
+  }
+  const hosts = [...(settingsStore.settings.hostInventory ?? [])];
+  hosts.push({
+    id: Date.now() + '' + Math.round(Math.random() * 1e6),
+    ip: ip.trim(),
+    port: 22,
+    groupId: hostGroupFilter.value || 'default'
+  });
+  saveHosts(hosts);
+}
+
+function updateHost(host: HostEntry, patch: Partial<HostEntry>) {
+  saveHosts(
+    (settingsStore.settings.hostInventory ?? []).map((h) => (h.id === host.id ? { ...h, ...patch } : h))
+  );
+}
+
+async function removeHost(host: HostEntry) {
+  const ok = await ui.confirm({
+    title: '移除主机',
+    message: `确定移除 ${host.ip}？`
+  });
+  if (!ok) {
+    return;
+  }
+  saveHosts((settingsStore.settings.hostInventory ?? []).filter((h) => h.id !== host.id));
+}
+
 // ---------- 通知 ----------
 
 const notifyEnabled = computed({
@@ -383,6 +524,80 @@ onMounted(() => {
 
     <!-- 推送 -->
     <div v-else class="ferry-settings-body">
+      <div class="ferry-settings-section-title">主机清单</div>
+      <div class="ferry-settings-row">
+        <span class="ferry-settings-label">查看分组</span>
+        <select v-model="hostGroupFilter" class="ferry-input ferry-settings-input">
+          <option value="">全部</option>
+          <option v-for="g in hostGroups" :key="g.id" :value="g.id">{{ g.name }}</option>
+        </select>
+      </div>
+      <div class="ferry-settings-row">
+        <span class="ferry-settings-label">导入到分组</span>
+        <select v-model="importGroupId" class="ferry-input ferry-settings-input">
+          <option v-for="g in hostGroups" :key="g.id" :value="g.id">{{ g.name }}</option>
+        </select>
+        <button class="ferry-btn small" @click="importHosts">导入</button>
+      </div>
+      <div class="ferry-settings-row">
+        <span class="ferry-settings-label">导出格式</span>
+        <select v-model="exportFormat" class="ferry-input ferry-settings-input">
+          <option value="txt">txt</option>
+          <option value="yaml">yaml</option>
+        </select>
+        <button class="ferry-btn small" @click="exportHosts">导出</button>
+      </div>
+      <div class="ferry-settings-row">
+        <span class="ferry-settings-label">分组管理</span>
+        <button class="ferry-btn small" @click="createHostGroup">＋ 新建</button>
+        <button
+          v-for="g in hostGroups"
+          :key="g.id"
+          class="ferry-btn small"
+          :title="g.name"
+          @click="renameHostGroup(g)"
+        >
+          ✎ {{ g.name }}
+        </button>
+        <button
+          v-for="g in hostGroups.filter((x) => x.id !== 'default')"
+          :key="'del-' + g.id"
+          class="ferry-btn small danger"
+          @click="deleteHostGroup(g)"
+        >
+          删除 {{ g.name }}
+        </button>
+      </div>
+      <div class="ferry-settings-row">
+        <span class="ferry-settings-label">主机</span>
+        <button class="ferry-btn small" @click="addHost">＋ 添加</button>
+      </div>
+      <div v-if="filteredHosts.length === 0" class="ferry-hint">暂无主机</div>
+      <div v-for="host in filteredHosts" :key="host.id" class="ferry-settings-row">
+        <input :value="host.ip" class="ferry-input ferry-settings-input" disabled />
+        <input
+          :value="host.hostname ?? ''"
+          class="ferry-input ferry-settings-input"
+          placeholder="hostname"
+          @change="updateHost(host, { hostname: ($event.target as HTMLInputElement).value })"
+        />
+        <input
+          type="number"
+          :value="host.port"
+          class="ferry-input ferry-settings-input"
+          @change="updateHost(host, { port: Number(($event.target as HTMLInputElement).value) || 22 })"
+        />
+        <select
+          :value="host.groupId"
+          class="ferry-input ferry-settings-input"
+          @change="updateHost(host, { groupId: ($event.target as HTMLSelectElement).value })"
+        >
+          <option v-for="g in hostGroups" :key="g.id" :value="g.id">{{ g.name }}</option>
+        </select>
+        <button class="ferry-btn small danger" @click="removeHost(host)">移除</button>
+      </div>
+
+      <div class="ferry-settings-section-title">推送目标</div>
       <div class="ferry-settings-row">
         <span class="ferry-settings-label">推送目标</span>
         <button class="ferry-btn small" @click="ui.openPushTargetModal()">＋ 新增</button>
@@ -396,7 +611,8 @@ onMounted(() => {
         class="ferry-settings-row"
       >
         <span class="ferry-settings-value">
-          {{ target.name }}（{{ target.type }} · {{ target.remotePath
+          {{ target.name }}（{{ target.type }} · {{
+            target.type === 'ssh' ? target.remoteDir || target.remotePath : target.remotePath
           }}{{ target.branch ? ' · ' + target.branch : '' }}）
         </span>
         <button class="ferry-btn small" @click="ui.openPushTargetModal(index)">编辑</button>

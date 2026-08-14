@@ -1219,6 +1219,25 @@ html[data-tooltip='off'] [data-tip]::after {
   cursor: pointer;
 }
 
+.ferry-push-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.ferry-push-group-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ferry-text);
+}
+
+.ferry-push-group-item input {
+  accent-color: var(--ferry-primary);
+}
+
 /* ===== 通知中心 ===== */
 .ferry-notify-wrap {
   position: relative;

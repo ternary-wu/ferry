@@ -16,7 +16,13 @@ public sealed record PushRequest(
     string? Branch = null,
     string? CommitMessage = null,
     string? RemotePath = null,
-    string? CredentialId = null);
+    string? CredentialId = null,
+    string? GitUserName = null,
+    string? GitUserEmail = null,
+    string? SshHost = null,
+    string? SshUser = null,
+    int? SshPort = null,
+    string? KeyFile = null);
 
 public sealed record PushResult(bool Ok, string Message);
 

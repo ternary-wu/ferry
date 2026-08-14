@@ -176,6 +176,8 @@ public static class Program
                 "archive:exportConfig" => ArchiveExportConfig(ctx, request!),
                 "archive:exportProject" => ArchiveExportProject(ctx, request!),
                 "archive:import" => ArchiveImport(ctx, request!),
+                "hosts:import" => HostsImport(ctx, request!),
+                "hosts:export" => HostsExport(ctx, request!),
                 "file:openDialog" => FileOpenDialog(window, request!),
                 "file:saveDialog" => FileSaveDialog(window, request!),
                 "logs:path" => LogsPath(),
@@ -446,6 +448,14 @@ public static class Program
     private static JsonObject FileOpenDialog(PhotinoWindow window, JsonObject request)
     {
         var title = request["title"]?.GetValue<string>() ?? "选择 Ferry 存档";
+        var filterName = request["filterName"]?.GetValue<string>();
+        var patterns = request["patterns"] is JsonArray array
+            ? array.Select(n => n?.GetValue<string>() ?? "*.*").ToArray()
+            : null;
+        var filter = patterns is { Length: > 0 }
+            ? (string.IsNullOrEmpty(filterName) ? "文件" : filterName)
+              + "\0" + string.Join("\0", patterns) + "\0\0"
+            : "Ferry 存档\0*.ferry\0所有文件\0*.*\0\0";
         string? path = null;
         void Show()
         {
@@ -453,7 +463,7 @@ public static class Program
             path = ShowNativeDialog(
                 window.WindowHandle,
                 title,
-                "Ferry 存档\0*.ferry\0所有文件\0*.*\0\0",
+                filter,
                 defaultExt: null,
                 initialDir: null,
                 defaultName: string.Empty,
@@ -945,7 +955,17 @@ public static class Program
         string Name,
         string Type,
         string RemotePath,
-        string? Branch);
+        string? Branch,
+        List<string> GroupIds,
+        string? SshUser,
+        string? RemoteDir,
+        string? KeyFile,
+        string? UserName,
+        string? UserEmail);
+
+    private sealed record HostGroupDto(string Id, string Name);
+
+    private sealed record SshHostTarget(string Ip, int Port, string RemoteDir);
 
     private static List<PushTargetDto> ReadPushTargets(Dictionary<string, object?> settings)
     {
@@ -965,7 +985,52 @@ public static class Program
                 o.TryGetValue("name", out var name) ? name?.ToString() ?? string.Empty : string.Empty,
                 o.TryGetValue("type", out var type) ? type?.ToString() ?? "local" : "local",
                 o.TryGetValue("remotePath", out var path) ? path?.ToString() ?? string.Empty : string.Empty,
-                o.TryGetValue("branch", out var branch) ? branch?.ToString() : null));
+                o.TryGetValue("branch", out var branch) ? branch?.ToString() : null,
+                o.TryGetValue("groupIds", out var groupIds) && groupIds is IEnumerable<object?> ids
+                    ? ids.Select(x => x?.ToString() ?? string.Empty).Where(s => !string.IsNullOrEmpty(s)).ToList()
+                    : new List<string>(),
+                o.TryGetValue("sshUser", out var sshUser) ? sshUser?.ToString() : null,
+                o.TryGetValue("remoteDir", out var remoteDir) ? remoteDir?.ToString() : null,
+                o.TryGetValue("keyFile", out var keyFile) ? keyFile?.ToString() : null,
+                o.TryGetValue("userName", out var userName) ? userName?.ToString() : null,
+                o.TryGetValue("userEmail", out var userEmail) ? userEmail?.ToString() : null));
+        }
+        return result;
+    }
+
+    private static List<HostGroupDto> ReadHostGroups(Dictionary<string, object?> settings)
+    {
+        var result = new List<HostGroupDto>();
+        if (!settings.TryGetValue("hostGroups", out var raw) || raw is not IEnumerable<object?> list)
+        {
+            return result;
+        }
+        foreach (var item in list)
+        {
+            if (item is not Dictionary<string, object?> o)
+            {
+                continue;
+            }
+            result.Add(new HostGroupDto(
+                o.TryGetValue("id", out var id) ? id?.ToString() ?? string.Empty : string.Empty,
+                o.TryGetValue("name", out var name) ? name?.ToString() ?? string.Empty : string.Empty));
+        }
+        return result;
+    }
+
+    private static List<Dictionary<string, object?>> ReadHostInventory(Dictionary<string, object?> settings)
+    {
+        var result = new List<Dictionary<string, object?>>();
+        if (!settings.TryGetValue("hostInventory", out var raw) || raw is not IEnumerable<object?> list)
+        {
+            return result;
+        }
+        foreach (var item in list)
+        {
+            if (item is Dictionary<string, object?> o)
+            {
+                result.Add(o);
+            }
         }
         return result;
     }
@@ -985,27 +1050,168 @@ public static class Program
             ?? throw new InvalidOperationException("配置不存在");
         var target = FindPushTarget(ctx, targetId);
         var content = ConfigReverseParser.AppendUnrecognized(config.SourceText, config.Unrecognized);
+        var pushRequest = target.Type switch
+        {
+            "git" => new PushRequest(
+                config.Name,
+                content,
+                PushTargetType.GitRepository,
+                target.Branch,
+                note,
+                target.RemotePath,
+                GitUserName: target.UserName,
+                GitUserEmail: target.UserEmail,
+                KeyFile: target.KeyFile),
+            "ssh" => BuildSshPushRequest(ctx, request, target, config.Name, content, note),
+            _ => new PushRequest(config.Name, content, PushTargetType.LocalDirectory, RemotePath: target.RemotePath)
+        };
         IPushService service = target.Type switch
         {
             "git" => new GitPushService(),
             "ssh" => new SshPushService(),
             _ => new LocalDirectoryPushService()
         };
-        var pushType = target.Type switch
-        {
-            "git" => PushTargetType.GitRepository,
-            "ssh" => PushTargetType.SshServer,
-            _ => PushTargetType.LocalDirectory
-        };
         var result = service
-            .PushAsync(
-                new PushRequest(config.Name, content, pushType, target.Branch, note, target.RemotePath),
-                CancellationToken.None)
+            .PushAsync(pushRequest, CancellationToken.None)
             .GetAwaiter()
             .GetResult();
         return result.Ok
             ? Ok(new JsonObject { ["message"] = result.Message })
             : Fail(new[] { result.Message });
+    }
+
+    private static PushRequest BuildSshPushRequest(
+        HostContext ctx,
+        JsonObject request,
+        PushTargetDto target,
+        string configName,
+        string content,
+        string? note)
+    {
+        if (!string.IsNullOrWhiteSpace(target.RemoteDir))
+        {
+            var hostId = request["hostId"]?.GetValue<string>();
+            var host = ReadHostInventory(ctx.Workspaces.LoadSettings())
+                .FirstOrDefault(h =>
+                    string.Equals(h.TryGetValue("id", out var id) ? id?.ToString() : null, hostId, StringComparison.OrdinalIgnoreCase));
+            if (host is null || string.IsNullOrWhiteSpace(host.TryGetValue("ip", out var ip) ? ip?.ToString() : null))
+            {
+                throw new InvalidOperationException("请选择要推送的主机");
+            }
+            var port = host.TryGetValue("port", out var portValue) && int.TryParse(portValue?.ToString(), out var parsedPort)
+                ? parsedPort
+                : 22;
+            return new PushRequest(
+                configName,
+                content,
+                PushTargetType.SshServer,
+                CommitMessage: note,
+                RemotePath: target.RemoteDir,
+                SshHost: host["ip"]!.ToString(),
+                SshUser: target.SshUser ?? "root",
+                SshPort: port,
+                KeyFile: target.KeyFile);
+        }
+
+        // 兼容旧目标：remotePath 形如 user@host:/dir
+        var legacy = target.RemotePath ?? string.Empty;
+        var idx = legacy.LastIndexOf(':');
+        if (idx <= 0)
+        {
+            throw new InvalidOperationException("SSH 目标未配置分组/远端目录");
+        }
+        var remote = legacy[..idx];
+        var dir = legacy[(idx + 1)..];
+        var user = "root";
+        var hostPart = remote;
+        var at = remote.LastIndexOf('@');
+        if (at >= 0)
+        {
+            user = remote[..at];
+            hostPart = remote[(at + 1)..];
+        }
+        return new PushRequest(
+            configName,
+            content,
+            PushTargetType.SshServer,
+            CommitMessage: note,
+            RemotePath: dir,
+            SshHost: hostPart,
+            SshUser: user,
+            KeyFile: target.KeyFile);
+    }
+
+    private static JsonObject HostsImport(HostContext ctx, JsonObject request)
+    {
+        var path = request["path"]!.GetValue<string>();
+        var groupId = request["groupId"]?.GetValue<string>() ?? HostInventoryService.DefaultGroupId;
+        if (!File.Exists(path))
+        {
+            return Fail(new[] { "文件不存在" });
+        }
+        var text = File.ReadAllText(path);
+        var ext = Path.GetExtension(path).ToLowerInvariant();
+        var parsed = ext is ".yaml" or ".yml"
+            ? HostFileParser.ParseYaml(text)
+            : HostFileParser.ParseTxt(text);
+
+        var settings = ctx.Workspaces.LoadSettings();
+        var groups = ReadHostGroups(settings);
+        if (groupId != HostInventoryService.DefaultGroupId && groups.All(g => g.Id != groupId))
+        {
+            return Fail(new[] { "分组不存在" });
+        }
+        if (groups.All(g => g.Id != HostInventoryService.DefaultGroupId))
+        {
+            groups.Add(new HostGroupDto(HostInventoryService.DefaultGroupId, "默认分组"));
+            settings["hostGroups"] = groups
+                .Select(g => (object)new Dictionary<string, object?> { ["id"] = g.Id, ["name"] = g.Name })
+                .ToList();
+        }
+
+        var (merged, imported, skipped) = HostInventoryService.MergeHosts(
+            ReadHostInventory(settings),
+            parsed,
+            groupId);
+        settings["hostInventory"] = merged.Select(h => (object)h).ToList();
+        ctx.Workspaces.SaveSettings(settings);
+        return Ok(new JsonObject
+        {
+            ["imported"] = imported,
+            ["skipped"] = skipped,
+            ["entries"] = Node(merged.Select(h => new
+            {
+                id = h.TryGetValue("id", out var id) ? id?.ToString() : null,
+                ip = h.TryGetValue("ip", out var ip) ? ip?.ToString() : null,
+                hostname = h.TryGetValue("hostname", out var hn) ? hn?.ToString() : null,
+                port = h.TryGetValue("port", out var port) ? port : 22L,
+                groupId = h.TryGetValue("groupId", out var gid) ? gid?.ToString() : null
+            }))
+        });
+    }
+
+    private static JsonObject HostsExport(HostContext ctx, JsonObject request)
+    {
+        var path = request["path"]!.GetValue<string>();
+        var format = request["format"]?.GetValue<string>() ?? "txt";
+        var groupId = request["groupId"]?.GetValue<string>();
+        var settings = ctx.Workspaces.LoadSettings();
+        var hosts = ReadHostInventory(settings);
+        if (!string.IsNullOrEmpty(groupId))
+        {
+            hosts = hosts
+                .Where(h => string.Equals(
+                    h.TryGetValue("groupId", out var g) ? g?.ToString() : null,
+                    groupId,
+                    StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+        var content = format.Equals("yaml", StringComparison.OrdinalIgnoreCase)
+            ? HostInventoryService.ToYaml(hosts)
+            : HostInventoryService.ToText(hosts);
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
+        File.WriteAllText(path, content);
+        return Ok(new JsonObject { ["path"] = path });
     }
 
     private static JsonObject PushGitLog(HostContext ctx, JsonObject request)

@@ -22,14 +22,13 @@ public sealed class SshPushService : IPushService
             {
                 return new PushResult(false, "不支持的目标类型");
             }
+            if (string.IsNullOrWhiteSpace(request.SshHost))
+            {
+                return new PushResult(false, "未指定 SSH 主机");
+            }
             if (string.IsNullOrWhiteSpace(request.RemotePath))
             {
-                return new PushResult(false, "未指定 SSH 目标");
-            }
-            var remote = request.RemotePath.Trim();
-            if (!remote.Contains(':'))
-            {
-                return new PushResult(false, "SSH 目标格式应为 user@host:/目录");
+                return new PushResult(false, "未指定远端目录");
             }
 
             var fileName = PushProcess.SafeFileName(request.ConfigName);
@@ -41,21 +40,19 @@ public sealed class SshPushService : IPushService
                 cancellationToken).ConfigureAwait(false);
 
             var scp = FindScp();
+            var args = BuildScpArguments(request, tempFile);
             var result = await PushProcess
                 .RunAsync(
                     scp,
                     null,
                     cancellationToken,
-                    "-o", "BatchMode=yes",
-                    "-q",
-                    tempFile,
-                    remote)
+                    args)
                 .ConfigureAwait(false);
             if (result.ExitCode != 0)
             {
                 return new PushResult(false, "SSH 推送失败：" + result.Error.Trim());
             }
-            return new PushResult(true, $"已推送到 {remote}/{fileName}");
+            return new PushResult(true, $"已推送到 {request.SshUser ?? "root"}@{request.SshHost}:{request.RemotePath}/{fileName}");
         }
         catch (OperationCanceledException)
         {
@@ -79,6 +76,26 @@ public sealed class SshPushService : IPushService
                 // 临时目录清理失败不影响结果
             }
         }
+    }
+
+    internal static string[] BuildScpArguments(PushRequest request, string sourceFile)
+    {
+        var args = new List<string> { "-o", "BatchMode=yes", "-q" };
+        var port = request.SshPort ?? 22;
+        if (port != 22)
+        {
+            args.Add("-P");
+            args.Add(port.ToString());
+        }
+        if (!string.IsNullOrWhiteSpace(request.KeyFile))
+        {
+            args.Add("-i");
+            args.Add(request.KeyFile);
+        }
+        args.Add(sourceFile);
+        var user = string.IsNullOrWhiteSpace(request.SshUser) ? "root" : request.SshUser;
+        args.Add($"{user}@{request.SshHost}:{request.RemotePath}");
+        return args.ToArray();
     }
 
     private static string FindScp()

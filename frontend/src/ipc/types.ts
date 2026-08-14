@@ -136,12 +136,31 @@ export interface PushTarget {
   type: 'local' | 'git' | 'ssh';
   remotePath: string;
   branch?: string;
+  groupIds?: string[];
+  sshUser?: string;
+  remoteDir?: string;
+  keyFile?: string;
+  userName?: string;
+  userEmail?: string;
 }
 
 export interface GitCommitDto {
   id: string;
   message: string;
   timestamp: string;
+}
+
+export interface HostGroup {
+  id: string;
+  name: string;
+}
+
+export interface HostEntry {
+  id: string;
+  ip: string;
+  hostname?: string;
+  port: number;
+  groupId: string;
 }
 
 export interface ArchiveImportResult {
@@ -173,6 +192,8 @@ export interface AppSettings {
   trashSizeMB?: number;
   closeOutside?: boolean;
   pushTargets?: PushTarget[];
+  hostGroups?: HostGroup[];
+  hostInventory?: HostEntry[];
   [key: string]: unknown;
 }
 
@@ -276,7 +297,7 @@ export interface ActionMap {
   'archive:exportProject': { payload: { projectId: string; path: string }; data: { path: string } };
   'archive:import': { payload: { path: string }; data: ArchiveImportResult };
   'file:openDialog': {
-    payload: { title?: string; patterns?: string[] };
+    payload: { title?: string; patterns?: string[]; filterName?: string };
     data: { path: string | null };
   };
   'file:saveDialog': {
@@ -302,7 +323,13 @@ export interface ActionMap {
   'settings:get': { payload: Record<string, never>; data: { settings: AppSettings } };
   'settings:save': { payload: { settings: Partial<AppSettings> }; data: { settings: AppSettings } };
   'push:run': {
-    payload: { workspaceId: string; configId: string; targetId: string; note?: string };
+    payload: {
+      workspaceId: string;
+      configId: string;
+      targetId: string;
+      note?: string;
+      hostId?: string;
+    };
     data: { message: string };
   };
   'push:gitLog': {
@@ -312,6 +339,14 @@ export interface ActionMap {
   'push:gitRestore': {
     payload: { targetId: string; workspaceId: string; configId: string; commitId: string };
     data: { message: string; snapshotId?: string | null };
+  };
+  'hosts:import': {
+    payload: { path: string; groupId?: string };
+    data: { imported: number; skipped: number; entries: HostEntry[] };
+  };
+  'hosts:export': {
+    payload: { path: string; format: 'txt' | 'yaml'; groupId?: string };
+    data: { path: string };
   };
   log: { payload: { text: string }; data: Record<string, never> };
   'spike:result': {

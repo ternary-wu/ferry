@@ -60,15 +60,13 @@ public sealed class GitPushService : IPushService
             var message = string.IsNullOrWhiteSpace(request.CommitMessage)
                 ? $"Ferry: 更新 {fileName}"
                 : request.CommitMessage;
+            var commitArgs = new List<string>();
+            commitArgs.AddRange(BuildIdentityArgs(request));
+            commitArgs.Add("commit");
+            commitArgs.Add("-m");
+            commitArgs.Add(message);
             var commit = await PushProcess
-                .RunAsync(
-                    git,
-                    repoPath,
-                    cancellationToken,
-                    "-c", "user.name=Ferry",
-                    "-c", "user.email=ferry@local",
-                    "commit",
-                    "-m", message)
+                .RunAsync(git, repoPath, cancellationToken, commitArgs.ToArray())
                 .ConfigureAwait(false);
             if (commit.ExitCode != 0)
             {
@@ -76,6 +74,13 @@ public sealed class GitPushService : IPushService
                 if (combined.Contains("nothing to commit", StringComparison.OrdinalIgnoreCase))
                 {
                     return new PushResult(true, "内容无变化，未生成新提交");
+                }
+                if (combined.Contains("user.name", StringComparison.OrdinalIgnoreCase)
+                    || combined.Contains("Please tell me who you are", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new PushResult(
+                        false,
+                        "未配置 Git 用户：请在 Git 全局配置 user.name/user.email，或在推送目标中单独设置用户与邮箱");
                 }
                 return new PushResult(false, "Git commit 失败：" + commit.Error.Trim());
             }
@@ -94,5 +99,22 @@ public sealed class GitPushService : IPushService
         {
             return new PushResult(false, "推送失败：" + ex.Message);
         }
+    }
+
+    /// <summary>目标设置了用户/邮箱时用 -c 覆盖，否则交给 git 全局配置。</summary>
+    internal static string[] BuildIdentityArgs(PushRequest request)
+    {
+        var args = new List<string>();
+        if (!string.IsNullOrWhiteSpace(request.GitUserName))
+        {
+            args.Add("-c");
+            args.Add($"user.name={request.GitUserName}");
+        }
+        if (!string.IsNullOrWhiteSpace(request.GitUserEmail))
+        {
+            args.Add("-c");
+            args.Add($"user.email={request.GitUserEmail}");
+        }
+        return args.ToArray();
     }
 }

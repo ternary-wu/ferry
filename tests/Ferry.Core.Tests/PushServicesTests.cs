@@ -100,7 +100,7 @@ public class PushServicesTests : IDisposable
     }
 
     [Fact]
-    public async Task SshPushService_RejectsInvalidTargetFormat()
+    public async Task SshPushService_RejectsMissingHost()
     {
         var service = new SshPushService();
         var result = await service.PushAsync(new PushRequest(
@@ -109,9 +109,55 @@ public class PushServicesTests : IDisposable
             PushTargetType.SshServer,
             null,
             null,
-            "missing-colon-host"));
+            "/etc/nginx"));
 
         Assert.False(result.Ok);
-        Assert.Contains("格式", result.Message);
+        Assert.Contains("SSH 主机", result.Message);
+    }
+
+    [Fact]
+    public void SshPushService_BuildScpArguments()
+    {
+        var req = new PushRequest(
+            "a.conf",
+            "content",
+            PushTargetType.SshServer,
+            SshHost: "10.0.0.1",
+            SshUser: "root",
+            SshPort: 2222,
+            KeyFile: @"C:\keys\id.pem",
+            RemotePath: "/etc/nginx");
+        var args = SshPushService.BuildScpArguments(req, @"C:\tmp\a.conf");
+
+        Assert.Contains("-i", args);
+        Assert.Contains(@"C:\keys\id.pem", args);
+        Assert.Contains("-P", args);
+        Assert.Contains("2222", args);
+        Assert.Contains("root@10.0.0.1:/etc/nginx", args);
+
+        var defaultPort = new PushRequest(
+            "a.conf",
+            "content",
+            PushTargetType.SshServer,
+            SshHost: "h",
+            RemotePath: "/d");
+        Assert.DoesNotContain("-P", SshPushService.BuildScpArguments(defaultPort, "t"));
+    }
+
+    [Fact]
+    public void GitPushService_IdentityArgs()
+    {
+        var none = new PushRequest("a.conf", "content", PushTargetType.GitRepository);
+        Assert.Empty(GitPushService.BuildIdentityArgs(none));
+
+        var overrideRequest = new PushRequest(
+            "a.conf",
+            "content",
+            PushTargetType.GitRepository,
+            GitUserName: "Wu",
+            GitUserEmail: "wu@example.com");
+        var args = GitPushService.BuildIdentityArgs(overrideRequest);
+        Assert.Contains("user.name=Wu", args);
+        Assert.Contains("user.email=wu@example.com", args);
     }
 }
