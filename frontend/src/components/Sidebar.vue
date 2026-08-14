@@ -50,7 +50,8 @@ const categories = [
   { id: 'plugins', name: '插件管理' },
   { id: 'modules', name: '模块管理' },
   { id: 'storage', name: '存储' },
-  { id: 'notifications', name: '通知' }
+  { id: 'notifications', name: '通知' },
+  { id: 'push', name: '推送' }
 ];
 
 function isWsOpen(id: string): boolean {
@@ -319,7 +320,7 @@ function configMenuItems(config: ConfigInfo, workspaceId: string): ContextMenuIt
     { text: '历史', onClick: () => ui.openHistory(config, workspaceId) },
     { text: '回滚', onClick: () => ui.openHistory(config, workspaceId) },
     { text: '恢复全部默认配置', onClick: () => void resetConfig(config, workspaceId) },
-    { text: '推送', disabled: true },
+    { text: '推送', onClick: () => ui.openPushModal(config, workspaceId) },
     { text: '动态模块项', disabled: true },
     { text: '删除', danger: true, onClick: () => void deleteConfig(config, workspaceId) }
   ];

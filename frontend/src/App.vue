@@ -10,6 +10,8 @@ import MoveModal from './components/MoveModal.vue';
 import HistoryModal from './components/HistoryModal.vue';
 import RenameModal from './components/RenameModal.vue';
 import ExportProjectModal from './components/ExportProjectModal.vue';
+import PushModal from './components/PushModal.vue';
+import PushTargetModal from './components/PushTargetModal.vue';
 import SourceDock from './components/SourceDock.vue';
 import ToastHost from './components/ToastHost.vue';
 import { useAppStore } from './stores/app';
@@ -140,6 +142,8 @@ onMounted(async () => {
     <HistoryModal />
     <RenameModal />
     <ExportProjectModal />
+    <PushModal />
+    <PushTargetModal />
     <WizardModal />
     <ToastHost />
   </div>

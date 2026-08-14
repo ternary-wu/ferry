@@ -496,6 +496,16 @@ textarea {
   margin-bottom: 10px;
 }
 
+.ferry-history-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ferry-history-git-list {
+  margin-top: 8px;
+}
+
 .ferry-history-note .ferry-input {
   flex: 1;
 }

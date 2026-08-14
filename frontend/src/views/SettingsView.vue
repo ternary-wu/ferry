@@ -18,7 +18,8 @@ const titles: Record<string, string> = {
   plugins: '插件管理',
   modules: '模块管理',
   storage: '存储',
-  notifications: '通知'
+  notifications: '通知',
+  push: '推送'
 };
 const title = computed(() => titles[ui.settingsCategory] ?? '设置');
 
@@ -210,6 +211,23 @@ async function permanentDelete(item: TrashItem) {
   }
 }
 
+async function deletePushTarget(index: number) {
+  const targets = [...(settingsStore.settings.pushTargets ?? [])];
+  const target = targets[index];
+  if (!target) {
+    return;
+  }
+  const ok = await ui.confirm({
+    title: '删除推送目标',
+    message: `确定删除「${target.name}」？`
+  });
+  if (!ok) {
+    return;
+  }
+  targets.splice(index, 1);
+  await settingsStore.save({ pushTargets: targets });
+}
+
 // ---------- 通知 ----------
 
 const notifyEnabled = computed({
@@ -348,7 +366,7 @@ onMounted(() => {
     </div>
 
     <!-- 通知 -->
-    <div v-else class="ferry-settings-body">
+    <div v-else-if="ui.settingsCategory === 'notifications'" class="ferry-settings-body">
       <label class="ferry-settings-row">
         <span class="ferry-settings-label">启用通知</span>
         <input v-model="notifyEnabled" type="checkbox" class="ferry-check" />
@@ -361,6 +379,29 @@ onMounted(() => {
         </select>
       </label>
       <div class="ferry-hint">通知面板与 Toast 将在下一阶段接线；此处持久化开关与样式。</div>
+    </div>
+
+    <!-- 推送 -->
+    <div v-else class="ferry-settings-body">
+      <div class="ferry-settings-row">
+        <span class="ferry-settings-label">推送目标</span>
+        <button class="ferry-btn small" @click="ui.openPushTargetModal()">＋ 新增</button>
+      </div>
+      <div v-if="(settingsStore.settings.pushTargets ?? []).length === 0" class="ferry-hint">
+        暂无推送目标
+      </div>
+      <div
+        v-for="(target, index) in settingsStore.settings.pushTargets ?? []"
+        :key="target.id"
+        class="ferry-settings-row"
+      >
+        <span class="ferry-settings-value">
+          {{ target.name }}（{{ target.type }} · {{ target.remotePath
+          }}{{ target.branch ? ' · ' + target.branch : '' }}）
+        </span>
+        <button class="ferry-btn small" @click="ui.openPushTargetModal(index)">编辑</button>
+        <button class="ferry-btn small danger" @click="deletePushTarget(index)">删除</button>
+      </div>
     </div>
   </div>
 </template>

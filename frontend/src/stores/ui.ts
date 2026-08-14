@@ -40,6 +40,10 @@ export const useUiStore = defineStore('ui', () => {
   const renameOpen = ref(false);
   const renameTarget = ref<ConfigTarget | null>(null);
   const exportProjectOpen = ref(false);
+  const pushModalOpen = ref(false);
+  const pushModalTarget = ref<ConfigTarget | null>(null);
+  const pushTargetModalOpen = ref(false);
+  const pushTargetEditIndex = ref<number | null>(null);
 
   function openMenu(items: ContextMenuItem[], x: number, y: number) {
     menuItems.value = items;
@@ -123,6 +127,26 @@ export const useUiStore = defineStore('ui', () => {
     exportProjectOpen.value = false;
   }
 
+  function openPushModal(config: ConfigInfo, workspaceId: string) {
+    pushModalTarget.value = { config, workspaceId };
+    pushModalOpen.value = true;
+  }
+
+  function closePushModal() {
+    pushModalOpen.value = false;
+    pushModalTarget.value = null;
+  }
+
+  function openPushTargetModal(editIndex: number | null = null) {
+    pushTargetEditIndex.value = editIndex;
+    pushTargetModalOpen.value = true;
+  }
+
+  function closePushTargetModal() {
+    pushTargetModalOpen.value = false;
+    pushTargetEditIndex.value = null;
+  }
+
   return {
     menuOpen,
     menuItems,
@@ -156,6 +180,14 @@ export const useUiStore = defineStore('ui', () => {
     closeRename,
     exportProjectOpen,
     openExportProject,
-    closeExportProject
+    closeExportProject,
+    pushModalOpen,
+    pushModalTarget,
+    openPushModal,
+    closePushModal,
+    pushTargetModalOpen,
+    pushTargetEditIndex,
+    openPushTargetModal,
+    closePushTargetModal
   };
 });

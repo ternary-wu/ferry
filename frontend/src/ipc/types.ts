@@ -130,6 +130,20 @@ export interface TrashItem {
   modified: string;
 }
 
+export interface PushTarget {
+  id: string;
+  name: string;
+  type: 'local' | 'git' | 'ssh';
+  remotePath: string;
+  branch?: string;
+}
+
+export interface GitCommitDto {
+  id: string;
+  message: string;
+  timestamp: string;
+}
+
 export interface ArchiveImportResult {
   imported: number;
   skipped: number;
@@ -158,6 +172,7 @@ export interface AppSettings {
   trashDays?: number;
   trashSizeMB?: number;
   closeOutside?: boolean;
+  pushTargets?: PushTarget[];
   [key: string]: unknown;
 }
 
@@ -286,6 +301,18 @@ export interface ActionMap {
   'window:drag': { payload: Record<string, never>; data: Record<string, never> };
   'settings:get': { payload: Record<string, never>; data: { settings: AppSettings } };
   'settings:save': { payload: { settings: Partial<AppSettings> }; data: { settings: AppSettings } };
+  'push:run': {
+    payload: { workspaceId: string; configId: string; targetId: string; note?: string };
+    data: { message: string };
+  };
+  'push:gitLog': {
+    payload: { targetId: string; workspaceId: string; configId: string };
+    data: { commits: GitCommitDto[] };
+  };
+  'push:gitRestore': {
+    payload: { targetId: string; workspaceId: string; configId: string; commitId: string };
+    data: { message: string; snapshotId?: string | null };
+  };
   log: { payload: { text: string }; data: Record<string, never> };
   'spike:result': {
     payload: {

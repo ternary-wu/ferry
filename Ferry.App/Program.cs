@@ -153,6 +153,9 @@ public static class Program
                 "config:exportTo" => ConfigExportTo(ctx, request!),
                 "settings:get" => SettingsGet(ctx),
                 "settings:save" => SettingsSave(ctx, request!, windowController),
+                "push:run" => PushRun(ctx, request!),
+                "push:gitLog" => PushGitLog(ctx, request!),
+                "push:gitRestore" => PushGitRestore(ctx, request!),
                 "form:snapshot" => FormResult(ctx, new SnapshotCommand()),
                 "form:validate" => FormResult(ctx, new ValidateCommand()),
                 "form:render" => FormResult(ctx, new RenderCommand()),
@@ -935,6 +938,164 @@ public static class Program
             FerryLog.Error("存档导入失败", ex);
             return Fail(new[] { "该文件不是有效的 Ferry 存档。" });
         }
+    }
+
+    private sealed record PushTargetDto(
+        string Id,
+        string Name,
+        string Type,
+        string RemotePath,
+        string? Branch);
+
+    private static List<PushTargetDto> ReadPushTargets(Dictionary<string, object?> settings)
+    {
+        var result = new List<PushTargetDto>();
+        if (!settings.TryGetValue("pushTargets", out var raw) || raw is not IEnumerable<object?> list)
+        {
+            return result;
+        }
+        foreach (var item in list)
+        {
+            if (item is not Dictionary<string, object?> o)
+            {
+                continue;
+            }
+            result.Add(new PushTargetDto(
+                o.TryGetValue("id", out var id) ? id?.ToString() ?? Guid.NewGuid().ToString("N") : Guid.NewGuid().ToString("N"),
+                o.TryGetValue("name", out var name) ? name?.ToString() ?? string.Empty : string.Empty,
+                o.TryGetValue("type", out var type) ? type?.ToString() ?? "local" : "local",
+                o.TryGetValue("remotePath", out var path) ? path?.ToString() ?? string.Empty : string.Empty,
+                o.TryGetValue("branch", out var branch) ? branch?.ToString() : null));
+        }
+        return result;
+    }
+
+    private static PushTargetDto FindPushTarget(HostContext ctx, string targetId)
+        => ReadPushTargets(ctx.Workspaces.LoadSettings())
+            .FirstOrDefault(t => t.Id == targetId)
+            ?? throw new InvalidOperationException("推送目标不存在");
+
+    private static JsonObject PushRun(HostContext ctx, JsonObject request)
+    {
+        var workspaceId = request["workspaceId"]!.GetValue<string>();
+        var configId = request["configId"]!.GetValue<string>();
+        var targetId = request["targetId"]!.GetValue<string>();
+        var note = request["note"]?.GetValue<string>();
+        var config = ctx.Workspaces.LoadConfig(workspaceId, configId)
+            ?? throw new InvalidOperationException("配置不存在");
+        var target = FindPushTarget(ctx, targetId);
+        var content = ConfigReverseParser.AppendUnrecognized(config.SourceText, config.Unrecognized);
+        IPushService service = target.Type switch
+        {
+            "git" => new GitPushService(),
+            "ssh" => new SshPushService(),
+            _ => new LocalDirectoryPushService()
+        };
+        var pushType = target.Type switch
+        {
+            "git" => PushTargetType.GitRepository,
+            "ssh" => PushTargetType.SshServer,
+            _ => PushTargetType.LocalDirectory
+        };
+        var result = service
+            .PushAsync(
+                new PushRequest(config.Name, content, pushType, target.Branch, note, target.RemotePath),
+                CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
+        return result.Ok
+            ? Ok(new JsonObject { ["message"] = result.Message })
+            : Fail(new[] { result.Message });
+    }
+
+    private static JsonObject PushGitLog(HostContext ctx, JsonObject request)
+    {
+        var target = FindPushTarget(ctx, request["targetId"]!.GetValue<string>());
+        if (target.Type != "git")
+        {
+            return Fail(new[] { "该目标不是 Git 仓库" });
+        }
+        var config = ctx.Workspaces.LoadConfig(
+                request["workspaceId"]!.GetValue<string>(),
+                request["configId"]!.GetValue<string>())
+            ?? throw new InvalidOperationException("配置不存在");
+        var fileName = PushProcess.SafeFileName(config.Name);
+        var git = PushProcess.FindGit();
+        var result = PushProcess
+            .RunAsync(
+                git,
+                Path.GetFullPath(target.RemotePath),
+                CancellationToken.None,
+                "log",
+                "--format=%H%x1f%s%x1f%ct",
+                "--",
+                fileName)
+            .GetAwaiter()
+            .GetResult();
+        var commits = new JsonArray();
+        if (result.ExitCode == 0)
+        {
+            foreach (var line in result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var parts = line.Split('\x1f');
+                if (parts.Length < 3)
+                {
+                    continue;
+                }
+                var timestamp = long.TryParse(parts[2], out var epoch)
+                    ? DateTimeOffset.FromUnixTimeSeconds(epoch)
+                        .ToLocalTime()
+                        .ToString("yyyy-MM-dd HH:mm")
+                    : string.Empty;
+                commits.Add(new JsonObject
+                {
+                    ["id"] = parts[0],
+                    ["message"] = parts[1],
+                    ["timestamp"] = timestamp
+                });
+            }
+        }
+        return Ok(new JsonObject { ["commits"] = commits });
+    }
+
+    private static JsonObject PushGitRestore(HostContext ctx, JsonObject request)
+    {
+        var target = FindPushTarget(ctx, request["targetId"]!.GetValue<string>());
+        if (target.Type != "git")
+        {
+            return Fail(new[] { "该目标不是 Git 仓库" });
+        }
+        var workspaceId = request["workspaceId"]!.GetValue<string>();
+        var configId = request["configId"]!.GetValue<string>();
+        var commitId = request["commitId"]!.GetValue<string>();
+        var config = ctx.Workspaces.LoadConfig(workspaceId, configId)
+            ?? throw new InvalidOperationException("配置不存在");
+        var fileName = PushProcess.SafeFileName(config.Name);
+        var git = PushProcess.FindGit();
+        var show = PushProcess
+            .RunAsync(
+                git,
+                Path.GetFullPath(target.RemotePath),
+                CancellationToken.None,
+                "show",
+                $"{commitId}:{fileName}")
+            .GetAwaiter()
+            .GetResult();
+        if (show.ExitCode != 0)
+        {
+            return Fail(new[] { "该提交中不存在文件或提交无效" });
+        }
+        config.SourceText = show.Output;
+        config.Values.Clear();
+        config.Enabled.Clear();
+        config.Unrecognized = new List<string>();
+        ctx.Workspaces.SaveConfig(config);
+        var snapshot = ctx.Workspaces.SnapshotVersion(config, $"从 Git 回滚 {commitId}");
+        return Ok(new JsonObject
+        {
+            ["message"] = $"已回滚到 {commitId}",
+            ["snapshotId"] = snapshot.Id
+        });
     }
 
     private static JsonObject LogsPath()

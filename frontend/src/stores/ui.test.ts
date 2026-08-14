@@ -100,4 +100,35 @@ describe('ui store', () => {
     expect(ui.renameOpen).toBe(false);
     expect(ui.renameTarget).toBeNull();
   });
+
+  it('opens and closes push modal', () => {
+    const ui = useUiStore();
+    ui.openPushModal(
+      {
+        id: 'c1',
+        name: 'nginx.conf',
+        pluginKey: 'Nginx',
+        pluginVersion: '1.0',
+        pluginName: 'Nginx',
+        pluginMissing: false,
+        updatedAt: ''
+      },
+      'ws1'
+    );
+    expect(ui.pushModalOpen).toBe(true);
+    expect(ui.pushModalTarget?.config.id).toBe('c1');
+    ui.closePushModal();
+    expect(ui.pushModalOpen).toBe(false);
+    expect(ui.pushModalTarget).toBeNull();
+  });
+
+  it('opens and closes push target modal with edit index', () => {
+    const ui = useUiStore();
+    ui.openPushTargetModal(2);
+    expect(ui.pushTargetModalOpen).toBe(true);
+    expect(ui.pushTargetEditIndex).toBe(2);
+    ui.closePushTargetModal();
+    expect(ui.pushTargetModalOpen).toBe(false);
+    expect(ui.pushTargetEditIndex).toBeNull();
+  });
 });
